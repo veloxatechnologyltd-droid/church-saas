@@ -87,6 +87,24 @@ class FakeProvider(BillingProvider):
         return None
 
 
+class ManualProvider(BillingProvider):
+    """Production-safe until a payment API is integrated: the church gets an invoice with
+    payment instructions (MoMo / bank transfer quoting the invoice number), and a platform
+    admin marks it paid after confirming receipt (``POST /platform/invoices/{id}/mark-paid``)."""
+
+    name = "manual"
+
+    def create_checkout(self, invoice: Invoice, church: Church) -> CheckoutSession:
+        url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/settings/billing?invoice={invoice.id}"
+        return CheckoutSession(checkout_url=url, provider_ref=f"manual_{invoice.number}")
+
+    def verify_webhook(self, body: bytes, headers: dict) -> WebhookEvent:
+        raise ValueError("The manual provider has no webhooks")
+
+    def cancel(self, subscription: Subscription) -> None:
+        return None
+
+
 class SeevplusProvider(BillingProvider):
     name = "seevplus"
 
@@ -100,6 +118,8 @@ def get_provider() -> BillingProvider:
     name = settings.BILLING_PROVIDER.strip().lower()
     if name == "fake":
         return FakeProvider()
+    if name == "manual":
+        return ManualProvider()
     if name == "seevplus":
         return SeevplusProvider()
     raise RuntimeError(f"Unknown billing provider {settings.BILLING_PROVIDER!r}")
@@ -198,6 +218,10 @@ def serialize_invoice(invoice: Invoice) -> dict:
         "status": invoice.status,
         "provider": invoice.provider,
         "checkout_url": invoice.checkout_url if invoice.status == "open" else None,
+        "payment_instructions": (
+            settings.BILLING_MANUAL_INSTRUCTIONS.format(number=invoice.number, amount=f"{invoice.currency} {invoice.amount:,.2f}")
+            if invoice.provider == "manual" and invoice.status == "open" else None
+        ),
         "created_at": invoice.created_at.isoformat() if invoice.created_at else None,
         "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
     }

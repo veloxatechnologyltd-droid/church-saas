@@ -38,6 +38,8 @@ except OSError:
 
 if settings.ENVIRONMENT == "production" and settings.SECRET_KEY in ("change-this-secret", "change-this-to-a-long-random-secret"):
     raise RuntimeError("SECRET_KEY must be set to a long random value in production")
+if settings.ENVIRONMENT == "production" and settings.BILLING_PROVIDER == "fake":
+    raise RuntimeError("BILLING_PROVIDER=fake lets anyone mark invoices paid; use 'manual' (or a real provider) in production")
 
 _cors_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
 

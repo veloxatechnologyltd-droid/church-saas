@@ -285,3 +285,20 @@ def test_login_rate_limited(client, session):
     codes = [client.post("/api/v1/auth/login", json={"email": "rl@x.test", "password": "bad"}).status_code
              for _ in range(12)]
     assert codes[:10] == [401] * 10 and codes[-1] == 429
+
+
+def test_manual_provider_invoice_confirmed_by_operator(client, session, monkeypatch):
+    monkeypatch.setattr(settings, "BILLING_PROVIDER", "manual")
+    owner = bearer(signup(client).json()["data"]["access_token"])
+    r = client.post("/api/v1/billing/checkout", json={"plan_code": "growth"}, headers=owner).json()["data"]
+    invoice = r["invoice"]
+    assert invoice["provider"] == "manual" and invoice["number"] in invoice["payment_instructions"]
+    # The church cannot complete it itself.
+    assert client.post(f"/api/v1/billing/fake/complete/{invoice['id']}", headers=owner).status_code == 404
+    make_user(session, "ops2@platform.test", is_platform_admin=True)
+    ops = bearer(login(client, "ops2@platform.test").json()["data"]["access_token"])
+    paid = client.post(f"/api/v1/platform/invoices/{invoice['id']}/mark-paid", headers=ops)
+    assert paid.status_code == 200 and paid.json()["data"]["status"] == "paid"
+    sub = client.get("/api/v1/billing/subscription", headers=owner).json()["data"]
+    assert sub["church_status"] == "active" and sub["status"] == "active"
+    assert client.post(f"/api/v1/platform/invoices/{invoice['id']}/mark-paid", headers=ops).status_code == 400

@@ -26,8 +26,12 @@ export default function BillingPanel() {
 
   const checkout = useMutation({
     mutationFn: (planCode) => billingService.checkout({ plan_code: planCode, billing_cycle: cycle }).then((r) => r.data.data),
-    onSuccess: (data) => goTo(data.checkout_url),
+    onSuccess: (data) => {
+      if (data.invoice?.payment_instructions) invoicesQuery.refetch();
+      else goTo(data.checkout_url);
+    },
   });
+  const awaiting = (invoicesQuery.data ?? []).filter((inv) => inv.status === 'open' && inv.payment_instructions);
 
   const sub = subQuery.data;
   const usage = usageQuery.data;
@@ -104,6 +108,9 @@ export default function BillingPanel() {
         <p className="mt-3 text-xs text-slate-500">Payments by mobile money or card through our payment partner. Prices include all features listed.</p>
       </section>
 
+      {awaiting.map((inv) => (
+        <Alert key={inv.id} tone="info"><p className="font-semibold">Invoice {inv.number} is awaiting payment</p><p className="mt-1">{inv.payment_instructions}</p></Alert>
+      ))}
       <section>
         <h3 className="mb-3 text-lg font-extrabold text-slate-900">Invoices</h3>
         <div className="overflow-x-auto rounded-2xl border border-slate-200">
@@ -119,7 +126,7 @@ export default function BillingPanel() {
                   <td className="px-4 py-3 font-semibold">{formatCurrency(inv.amount, inv.currency)}</td>
                   <td className="px-4 py-3"><Badge variant={STATUS_BADGE[inv.status] ?? 'default'}>{inv.status}</Badge></td>
                   <td className="px-4 py-3 text-slate-500">{formatDate(inv.paid_at || inv.created_at)}</td>
-                  <td className="px-4 py-3 text-right">{inv.status === 'open' && inv.checkout_url ? <button type="button" className="btn-ghost" onClick={() => goTo(inv.checkout_url)}>Pay now</button> : null}</td>
+                  <td className="px-4 py-3 text-right">{inv.status === 'open' && inv.checkout_url && !inv.payment_instructions ? <button type="button" className="btn-ghost" onClick={() => goTo(inv.checkout_url)}>Pay now</button> : null}</td>
                 </tr>
               ))}
               {!invoicesQuery.isLoading && !(invoicesQuery.data ?? []).length && (

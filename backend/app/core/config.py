@@ -48,10 +48,17 @@ class Settings(BaseSettings):
     GRACE_DAYS: int = 7  # read-only mode starts this long after a paid period ends
     SIGNUP_SMS_CREDITS: int = 50  # welcome credits for a new church
     IMPERSONATION_MINUTES: int = 30
-    # fake = built-in test provider (checkout completes from a frontend page). The real
+    # fake = test provider (checkout completes from a frontend page; NEVER in production),
+    # manual = invoices paid offline and confirmed by a platform admin. The real
     # Seevplus provider is blocked until its API documentation is available.
     BILLING_PROVIDER: str = "fake"
     BILLING_WEBHOOK_SECRET: str = ""
+    # Shown on open invoices when BILLING_PROVIDER=manual. {number} and {amount} are filled in.
+    BILLING_MANUAL_INSTRUCTIONS: str = (
+        "Pay {amount} by Mobile Money or bank transfer and use {number} as the reference. "
+        "Your plan is activated as soon as we confirm the payment (usually within one business day). "
+        "Questions? Contact support."
+    )
     RATE_LIMIT_ENABLED: bool = True
     # Shared secret for scheduled jobs (Vercel Cron sends "Authorization: Bearer <CRON_SECRET>").
     CRON_SECRET: str = ""

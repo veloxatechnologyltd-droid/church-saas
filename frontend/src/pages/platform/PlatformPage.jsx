@@ -48,6 +48,7 @@ function ChurchDrawer({ churchId, onClose }) {
   const suspend = useMutation({ mutationFn: () => platformService.suspend(churchId, reason), onSuccess: done('Church suspended.'), onError });
   const reactivate = useMutation({ mutationFn: () => platformService.reactivate(churchId), onSuccess: done('Church reactivated.'), onError });
   const changePlan = useMutation({ mutationFn: () => platformService.changePlan(churchId, { plan_code: plan, status: planStatus }), onSuccess: done('Plan updated.'), onError });
+  const markPaid = useMutation({ mutationFn: (invoiceId) => platformService.markInvoicePaid(invoiceId), onSuccess: done('Payment confirmed and applied.'), onError });
   const grant = useMutation({ mutationFn: () => platformService.grantSms(churchId, { credits: Number(credits), reason: 'grant' }), onSuccess: done('SMS credits updated.'), onError });
   const impersonate = useMutation({
     mutationFn: () => platformService.impersonate(churchId).then((r) => r.data.data),
@@ -125,7 +126,7 @@ function ChurchDrawer({ churchId, onClose }) {
           {(d.invoices ?? []).length > 0 && (
             <section>
               <p className="label-caps mb-2">Invoices</p>
-              <div className="space-y-1 text-sm">{d.invoices.map((inv) => <p key={inv.id} className="flex justify-between"><span>{inv.number} · {inv.description}</span><span className="font-semibold">{formatCurrency(inv.amount, inv.currency)} · {inv.status}</span></p>)}</div>
+              <div className="space-y-1 text-sm">{d.invoices.map((inv) => <p key={inv.id} className="flex justify-between"><span>{inv.number} · {inv.description}</span><span className="flex items-center gap-2 font-semibold">{formatCurrency(inv.amount, inv.currency)} · {inv.status}{inv.status === 'open' && inv.provider === 'manual' ? <button type="button" className="btn-outline px-2 py-1 text-xs" disabled={markPaid.isPending} onClick={() => markPaid.mutate(inv.id)}>Mark paid</button> : null}</span></p>)}</div>
             </section>
           )}
           <section>

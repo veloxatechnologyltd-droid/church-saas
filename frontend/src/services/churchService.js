@@ -51,6 +51,7 @@ export const platformService = {
   grantSms: (id, payload) => api.post(`/platform/churches/${id}/sms-credits`, payload),
   impersonate: (id) => api.post(`/platform/churches/${id}/impersonate`),
   events: (params) => api.get('/platform/events', { params }),
+  markInvoicePaid: (invoiceId) => api.post(`/platform/invoices/${invoiceId}/mark-paid`),
 };
 
 export const publicService = {

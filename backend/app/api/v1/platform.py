@@ -248,6 +248,24 @@ def impersonate(church_id: UUID, db: Session = Depends(get_db),
     return {"status": "success", "data": session_payload(db, admin.user, membership, church, impersonating=True)}
 
 
+@router.post("/invoices/{invoice_id}/mark-paid")
+def mark_invoice_paid(invoice_id: UUID, db: Session = Depends(get_db),
+                      admin: CurrentUser = Depends(require_platform_admin)):
+    """Confirm an offline (manual provider) payment and grant what the invoice bought."""
+    from app.services.billing import apply_paid_invoice, serialize_invoice
+
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if invoice is None:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if invoice.status not in ("open", "failed"):
+        raise HTTPException(status_code=400, detail=f"Invoice is {invoice.status}")
+    apply_paid_invoice(db, invoice, method="manual")
+    _event(db, admin, "invoice_marked_paid", invoice.church_id, number=invoice.number, amount=float(invoice.amount))
+    db.commit()
+    db.refresh(invoice)
+    return {"status": "success", "data": serialize_invoice(invoice)}
+
+
 @router.get("/events")
 def platform_events(limit: int = Query(default=50, ge=1, le=200), db: Session = Depends(get_db),
                     admin: CurrentUser = Depends(require_platform_admin)):
