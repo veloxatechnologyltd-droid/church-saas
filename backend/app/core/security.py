@@ -18,12 +18,12 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-def create_access_token(data: dict) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """Sign a JWT. ``iat`` is a float so a token minted right after a password change
     is distinguishable from one minted just before it (see ``password_changed_at``)."""
     payload = data.copy()
     now = datetime.now(timezone.utc)
-    payload.update({"exp": now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES), "iat": now.timestamp()})
+    payload.update({"exp": now + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)), "iat": now.timestamp()})
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 

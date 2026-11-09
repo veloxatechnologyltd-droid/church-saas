@@ -6,10 +6,13 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.db.tenancy import bind_tenant, clear_tenant, current_church_id
+from app.models.church import Church
 from app.models.communication import Communication, ReminderRun, ReminderSchedule
 from app.models.group import Group, GroupMember
 from app.models.member import Member
 from app.schemas.communication import ReminderScheduleCreate, ReminderScheduleUpdate, SMSCreate
+from app.services import sms_credits
 from app.services.sms import send_sms
 
 
@@ -55,7 +58,21 @@ def _create_communication_log(
 
 
 def send_sms_and_log(db: Session, payload: SMSCreate, sent_by: UUID | None) -> Communication:
+    """Send to the resolved audience, spending the church's prepaid SMS credits.
+
+    Credits are checked before sending (402 ``plan_limit``/``sms`` when short) and only
+    successfully delivered messages are charged.
+    """
+    church_id = current_church_id(db)
+    if church_id is None:
+        raise RuntimeError("send_sms_and_log needs a tenant-bound session")
+    church = db.query(Church).filter(Church.id == church_id).one()
+
     members = resolve_recipients(db, payload.audience_type, payload.group_id, payload.member_ids)
+    phones = [member.phone for member in members if member.phone]
+    per_message = sms_credits.segments(payload.message)
+    sms_credits.ensure_balance(db, church_id, per_message * len(phones))
+
     communication = _create_communication_log(db, payload, members, sent_by)
     if not members:
         communication.status = "skipped"
@@ -64,12 +81,18 @@ def send_sms_and_log(db: Session, payload: SMSCreate, sent_by: UUID | None) -> C
         return communication
 
     try:
-        result = send_sms([member.phone for member in members if member.phone], payload.message)
+        result = send_sms(phones, payload.message, sender_id=church.sms_sender_id)
         communication.successful_count = result.successful_count
         communication.failed_count = result.failed_count
         communication.provider_message_id = result.provider_message_id
         communication.credits_used = result.credits_used
         communication.status = "sent" if result.failed_count == 0 else "partial"
+        charge = per_message * result.successful_count
+        if charge:
+            communication.credits_used = charge
+            sms_credits.change_balance(
+                db, church_id, -charge, "send", reference=str(communication.id), user_id=sent_by, allow_negative=True
+            )
     except Exception as exc:
         communication.status = "failed"
         communication.failed_count = len(members)
@@ -144,7 +167,31 @@ def _scheduled_datetime(schedule: ReminderSchedule, now: datetime) -> datetime |
 
 
 def run_due_reminders(db: Session, now: datetime | None = None) -> list[dict]:
+    """Send every due reminder. On a tenant-bound session only that church's reminders
+    run; on an unbound session (the cron job) each church is processed in turn, bound
+    to its own tenant scope."""
     now = now or datetime.now(timezone.utc)
+    if current_church_id(db) is not None:
+        return _run_due_reminders_for_church(db, now)
+    church_ids = [
+        row[0]
+        for row in db.query(ReminderSchedule.church_id)
+        .join(Church, Church.id == ReminderSchedule.church_id)
+        .filter(ReminderSchedule.is_active.is_(True), Church.status.in_(("trialing", "active")))
+        .distinct()
+        .all()
+    ]
+    results = []
+    for church_id in church_ids:
+        bind_tenant(db, church_id)
+        try:
+            results.extend(_run_due_reminders_for_church(db, now))
+        finally:
+            clear_tenant(db)
+    return results
+
+
+def _run_due_reminders_for_church(db: Session, now: datetime) -> list[dict]:
     results = []
     for schedule in list_schedules(db):
         scheduled_for = _scheduled_datetime(schedule, now)

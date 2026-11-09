@@ -57,6 +57,13 @@ def clear_tenant(db: Session) -> None:
         db.info.pop(key, None)
 
 
+def unbind_tenant(db: Session) -> None:
+    """Clear the scope AND the RLS variable of the open transaction (platform endpoints
+    whose token happens to name a church)."""
+    clear_tenant(db)
+    _set_rls(db.connection(), None)
+
+
 def current_church_id(db: Session) -> UUID | None:
     return db.info.get(TENANT_KEY)
 

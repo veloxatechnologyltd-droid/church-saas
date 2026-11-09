@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated, Optional
 from uuid import UUID
 
@@ -37,7 +38,13 @@ class ChurchAccess(BaseModel):
     name: str
     slug: str
     logo_url: Optional[str] = None
+    primary_color: Optional[str] = None
+    secondary_color: Optional[str] = None
     status: str
+    plan: Optional[str] = None
+    currency: Optional[str] = None
+    trial_ends_at: Optional[datetime] = None
+    onboarding_completed: bool = False
     role: str
     branch_id: Optional[UUID] = None
 

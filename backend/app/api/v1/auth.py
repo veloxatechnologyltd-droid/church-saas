@@ -25,13 +25,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _issue_token(user: User, membership: Membership | None = None) -> str:
+def _issue_token(user: User, membership: Membership | None = None, impersonating: bool = False) -> str:
     """JWT with ``sub`` and, when a church is selected, ``church_id``, ``role`` and ``branch_id``.
 
     The server re-reads role and branch from the membership on every request; the claims
     are for clients, not for authorisation.
     """
     claims: dict = {"sub": str(user.id)}
+    if impersonating:
+        from datetime import timedelta
+
+        claims["imp"] = True
+        claims["church_id"] = str(membership.church_id)
+        claims["role"] = "church_admin"
+        return create_access_token(claims, expires_delta=timedelta(minutes=settings.IMPERSONATION_MINUTES))
     if membership is not None:
         claims["church_id"] = str(membership.church_id)
         claims["role"] = membership.role
@@ -46,7 +53,13 @@ def _church_access(membership: Membership, church: Church) -> dict:
         name=church.name,
         slug=church.slug,
         logo_url=church.logo_url,
+        primary_color=church.primary_color,
+        secondary_color=church.secondary_color,
         status=church.status,
+        plan=church.plan,
+        currency=church.currency,
+        trial_ends_at=church.trial_ends_at,
+        onboarding_completed=church.onboarding_completed_at is not None,
         role=membership.role,
         branch_id=membership.branch_id,
     ).model_dump(mode="json")
@@ -70,6 +83,22 @@ def _user_payload(context: CurrentUser) -> dict:
 
 def _active_church(context: CurrentUser) -> dict | None:
     return _church_access(context.membership, context.church) if context.church else None
+
+
+def session_payload(db: Session, user: User, membership: Membership | None, church: Church | None,
+                    impersonating: bool = False) -> dict:
+    """The login-shaped payload (also returned by switch-church, signup and impersonation)."""
+    context = CurrentUser(user=user, membership=membership, church=church, impersonating=impersonating)
+    access = [] if impersonating else auth_crud.list_church_access(db, user.id)
+    payload = {
+        "access_token": _issue_token(user, membership, impersonating=impersonating),
+        "token_type": "bearer",
+        "user": _user_payload(context),
+        "churches": [_church_access(m, c) for m, c in access],
+        "active_church": _active_church(context),
+        "impersonating": impersonating,
+    }
+    return payload
 
 
 @router.post("/login")
@@ -119,23 +148,21 @@ def switch_church(
         # Same answer whether the church does not exist or the user is not in it.
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have access to that church")
     membership, church = access
-    new_context = CurrentUser(user=context.user, membership=membership, church=church)
-    return {
-        "status": "success",
-        "data": {
-            "access_token": _issue_token(context.user, membership),
-            "token_type": "bearer",
-            "user": _user_payload(new_context),
-            "active_church": _active_church(new_context),
-        },
-    }
+    return {"status": "success", "data": session_payload(db, context.user, membership, church)}
 
 
 @router.get("/me")
-def me(context: CurrentUser = Depends(get_session_context)):
+def me(context: CurrentUser = Depends(get_session_context), db: Session = Depends(get_db)):
+    access = [] if context.impersonating else auth_crud.list_church_access(db, context.id)
     return {
         "status": "success",
-        "data": {**_user_payload(context), "active_church": _active_church(context)},
+        "data": {
+            **_user_payload(context),
+            "user": _user_payload(context),
+            "active_church": _active_church(context),
+            "churches": [_church_access(m, c) for m, c in access],
+            "impersonating": context.impersonating,
+        },
     }
 
 

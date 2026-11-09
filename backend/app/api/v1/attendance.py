@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_current_user, require_roles
 from app.crud import attendance as attendance_crud
 from app.db.database import get_db
+from app.core.config import settings
+from app.schemas.outreach import CheckinToggle
 from app.schemas.attendance import AttendanceMarkRequest, AttendanceRecordResponse, AttendanceSessionCreate, AttendanceSessionResponse
 from app.services.audit import record_audit
 
@@ -72,12 +74,45 @@ def mark_attendance(
     return {"status": "success", "data": data}
 
 
+@router.post("/sessions/{session_id}/checkin")
+def toggle_self_checkin(
+    session_id: UUID,
+    payload: CheckinToggle,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_roles("church_admin", "secretary", "group_leader")),
+):
+    """Open or close QR self check-in for a session. The code is kept when reopening."""
+    session = attendance_crud.get_session(db, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Attendance session not found")
+
+    attendance_crud.set_self_checkin(db, session, payload.open)
+    record_audit(db, user_id=current_user.id, action="checkin_opened" if payload.open else "checkin_closed",
+                 table_name="attendance_sessions", record_id=session.id)
+    db.commit()
+    db.refresh(session)
+    return {"status": "success", "data": _checkin_payload(session)}
+
+
+def _checkin_payload(session) -> dict:
+    base = settings.FRONTEND_BASE_URL.rstrip("/")
+    return {
+        "checkin_code": session.checkin_code,
+        "checkin_open": session.checkin_open,
+        "checkin_url": f"{base}/checkin/{session.checkin_code}" if session.checkin_code else None,
+    }
+
+
 @router.get("/member/{member_id}")
 def member_history(
     member_id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    from app.crud.member import get_member
+
+    if not get_member(db, member_id):
+        raise HTTPException(status_code=404, detail="Member not found")
     history, attendance_percentage = attendance_crud.member_attendance_history(db, member_id)
     return {
         "status": "success",

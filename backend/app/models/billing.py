@@ -5,6 +5,7 @@ SMS credit ledger and the platform (operator) event log.
 church owns carries ``church_id`` like any other tenant table.
 """
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func, text,
@@ -134,7 +135,9 @@ class SmsCreditEntry(ChurchScoped, Base):
     reason = Column(String, nullable=False)  # purchase, monthly_allowance, send, refund, grant
     reference = Column(String, nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    # Wall-clock (not transaction-start) time, so entries in one transaction keep their order.
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now(),
+                        nullable=False)
 
 
 class PlatformEvent(Base):

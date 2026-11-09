@@ -16,7 +16,7 @@ from the token, so demoting or removing someone takes effect on their next reque
 from dataclasses import dataclass
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -55,6 +55,7 @@ class CurrentUser:
     user: User
     membership: Membership | None = None
     church: Church | None = None
+    impersonating: bool = False
 
     @property
     def id(self) -> UUID:
@@ -118,6 +119,20 @@ def get_session_context(claims: dict = Depends(get_token_claims), db: Session = 
     church_id = _parse_uuid(raw_church_id)
     if church_id is None:
         raise _unauthorized()
+
+    if claims.get("imp"):
+        # Platform-admin impersonation (audited when the token was issued). The admin
+        # acts as a church_admin through a transient membership that is never saved.
+        if not user.is_platform_admin:
+            raise _unauthorized()
+        church = db.query(Church).filter(Church.id == church_id).first()
+        if church is None:
+            raise _unauthorized()
+        membership = Membership(user_id=user.id, church_id=church.id, role="church_admin")
+        main_branch_id = db.query(Branch.id).filter(Branch.church_id == church.id, Branch.is_main.is_(True)).scalar()
+        bind_tenant(db, church.id, default_branch_id=main_branch_id)
+        return CurrentUser(user=user, membership=membership, church=church, impersonating=True)
+
     membership = (
         db.query(Membership)
         .filter(
@@ -145,9 +160,38 @@ def get_session_context(claims: dict = Depends(get_token_claims), db: Session = 
     return CurrentUser(user=user, membership=membership, church=church)
 
 
-def get_current_user(context: CurrentUser = Depends(get_session_context)) -> CurrentUser:
+# Writes that stay possible in read-only mode, so a lapsed church can pay and recover.
+_READ_ONLY_ALLOWED_PREFIXES = ("/api/v1/billing", "/api/v1/sms-credits", "/api/v1/auth")
+_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def get_current_user(
+    request: Request,
+    context: CurrentUser = Depends(get_session_context),
+    db: Session = Depends(get_db),
+) -> CurrentUser:
     if context.church is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No church selected. Choose a church first.")
+    church = context.church
+    request.state.church_id = str(church.id)
+    if church.status == "suspended" and not context.impersonating:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "church_suspended",
+                "message": church.suspended_reason
+                or "This church account is suspended. Please contact support.",
+            },
+        )
+    if request.method not in _SAFE_METHODS and not request.url.path.startswith(_READ_ONLY_ALLOWED_PREFIXES):
+        from app.services.plans import read_only_reason
+
+        reason = read_only_reason(db, church)
+        if reason:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail={"code": "subscription_required", "message": reason},
+            )
     return context
 
 
@@ -170,8 +214,16 @@ def require_roles(*roles: str):
     return role_checker
 
 
-def require_platform_admin(context: CurrentUser = Depends(get_session_context)) -> CurrentUser:
-    """Product-owner operators only. Independent of any church membership."""
-    if not context.is_platform_admin:
+def require_platform_admin(
+    context: CurrentUser = Depends(get_session_context), db: Session = Depends(get_db)
+) -> CurrentUser:
+    """Product-owner operators only. Independent of any church membership.
+
+    Platform endpoints work across churches, so the tenant scope is removed; their
+    queries must filter by ``church_id`` explicitly."""
+    if not context.is_platform_admin or context.impersonating:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    from app.db.tenancy import unbind_tenant
+
+    unbind_tenant(db)
     return context

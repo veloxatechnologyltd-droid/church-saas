@@ -22,6 +22,8 @@ class AttendanceSessionResponse(BaseModel):
     notes: Optional[str] = None
     created_by: Optional[UUID] = None
     created_at: datetime
+    checkin_code: Optional[str] = None
+    checkin_open: bool = False
 
     class Config:
         from_attributes = True

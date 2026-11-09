@@ -29,6 +29,17 @@ def get_session(db: Session, session_id: UUID) -> AttendanceSession | None:
     return db.query(AttendanceSession).filter(AttendanceSession.id == session_id).first()
 
 
+def set_self_checkin(db: Session, session: AttendanceSession, is_open: bool) -> AttendanceSession:
+    """Open/close self check-in; generates an unguessable code the first time."""
+    if is_open and not session.checkin_code:
+        import secrets
+
+        session.checkin_code = secrets.token_urlsafe(8)
+    session.checkin_open = is_open
+    db.flush()
+    return session
+
+
 def mark_attendance(db: Session, session_id: UUID, records: list[AttendanceMarkItem]) -> list[AttendanceRecord]:
     existing = (
         db.query(AttendanceRecord)

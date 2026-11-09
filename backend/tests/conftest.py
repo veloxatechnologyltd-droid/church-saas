@@ -19,7 +19,8 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
-TEST_DB_NAME = "church_saas_test"
+# Override with TEST_DB_NAME=..._test to run two suites side by side.
+TEST_DB_NAME = os.environ.get("TEST_DB_NAME", "church_saas_test")
 
 # Resolve the base (dev) URL the same way the app would, then derive the test URL.
 os.chdir(BACKEND_DIR)  # so pydantic-settings finds backend/.env
@@ -156,6 +157,9 @@ def client(session, outbox):
         yield session
 
     app.dependency_overrides[get_db] = _request_session
+    from app.core.middleware import limiter
+
+    limiter.reset()  # each test starts with a fresh rate-limit window
     app.dependency_overrides[get_email_sender] = lambda: outbox
     try:
         yield TestClient(app)

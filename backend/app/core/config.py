@@ -19,16 +19,18 @@ class Settings(BaseSettings):
     CLOUDINARY_API_SECRET: str = ""
 
     SENDGRID_API_KEY: str = ""
-    FROM_EMAIL: str = "noreply@livingsspring.org"
+    FROM_EMAIL: str = "noreply@example.com"
+    FROM_NAME: str = "Ekklesia"
 
+    # arkesel | moolre | console (console logs messages instead of sending; local/dev only)
     SMS_PROVIDER: str = "arkesel"
 
     ARKESEL_API_KEY: str = ""
-    ARKESEL_SENDER_ID: str = "LivingSpring"
+    ARKESEL_SENDER_ID: str = "CHURCH"
     ARKESEL_BASE_URL: str = "https://sms.arkesel.com"
 
     MOOLRE_VAS_KEY: str = ""
-    MOOLRE_SENDER_ID: str = "LivingSpring"
+    MOOLRE_SENDER_ID: str = "CHURCH"
     MOOLRE_BASE_URL: str = "https://api.moolre.com"
 
     # Where links in emails (invites, password reset) point. The frontend owns these pages.
@@ -37,6 +39,21 @@ class Settings(BaseSettings):
     PASSWORD_RESET_EXPIRE_MINUTES: int = 60
     # "console" prints emails to the server log (development). No real provider yet.
     EMAIL_BACKEND: str = "console"
+
+    # --- SaaS platform ---
+    PRODUCT_NAME: str = "Ekklesia"
+    ENVIRONMENT: str = "development"  # development | staging | production
+    TRIAL_DAYS: int = 14
+    TRIAL_PLAN: str = "growth"  # plan whose limits apply during the trial
+    GRACE_DAYS: int = 7  # read-only mode starts this long after a paid period ends
+    SIGNUP_SMS_CREDITS: int = 50  # welcome credits for a new church
+    IMPERSONATION_MINUTES: int = 30
+    # fake = built-in test provider (checkout completes from a frontend page). The real
+    # Seevplus provider is blocked until its API documentation is available.
+    BILLING_PROVIDER: str = "fake"
+    BILLING_WEBHOOK_SECRET: str = ""
+    RATE_LIMIT_ENABLED: bool = True
+    LOG_JSON: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

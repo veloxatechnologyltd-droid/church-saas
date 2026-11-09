@@ -1,22 +1,44 @@
 import os
 import logging
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import attendance, audit, auth, communication, donations, events, families, groups, invitations, members, pastoral, reports
+from app.api.v1 import pledges, prayer_requests, public, visitors
+from app.api.v1 import billing, branches, church, platform, signup, team
+from app.core.middleware import RateLimitMiddleware, RequestLogMiddleware, SecurityHeadersMiddleware
+from app.db.tenancy import TenantViolation
 from app.core.config import settings
 from app.db.database import check_database_connection
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Living Spring CMS API", version="1.0.0")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
-os.makedirs("uploads/members", exist_ok=True)
+app = FastAPI(
+    title=f"{settings.PRODUCT_NAME} API",
+    version="2.0.0",
+    description="Multi-tenant church management API.",
+    # Interactive docs are handy in development; production keeps the schema private.
+    docs_url=None if settings.ENVIRONMENT == "production" else "/docs",
+    redoc_url=None,
+    openapi_url=None if settings.ENVIRONMENT == "production" else "/openapi.json",
+)
+
+os.makedirs("uploads", exist_ok=True)
+
+if settings.ENVIRONMENT == "production" and settings.SECRET_KEY in ("change-this-secret", "change-this-to-a-long-random-secret"):
+    raise RuntimeError("SECRET_KEY must be set to a long random value in production")
 
 _cors_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
 
+# Order: the last added runs first. CORS must wrap everything (incl. 429 responses).
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RequestLogMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
@@ -39,11 +61,29 @@ app.include_router(communication.router, prefix="/api/v1/communication", tags=["
 app.include_router(pastoral.router, prefix="/api/v1/pastoral", tags=["Pastoral Care"])
 app.include_router(audit.router, prefix="/api/v1/audit", tags=["Audit"])
 app.include_router(reports.router, prefix="/api/v1/reports", tags=["Reports"])
+app.include_router(visitors.router, prefix="/api/v1/visitors", tags=["Visitors"])
+app.include_router(prayer_requests.router, prefix="/api/v1/prayer-requests", tags=["Prayer Requests"])
+app.include_router(pledges.router, prefix="/api/v1/pledges", tags=["Pledges"])
+app.include_router(public.router, prefix="/api/v1/public", tags=["Public"])
+app.include_router(signup.router, prefix="/api/v1/signup", tags=["Signup"])
+app.include_router(church.router, prefix="/api/v1/church", tags=["Church settings"])
+app.include_router(branches.router, prefix="/api/v1/branches", tags=["Branches"])
+app.include_router(team.router, prefix="/api/v1/team", tags=["Team"])
+app.include_router(billing.router, prefix="/api/v1/billing", tags=["Billing"])
+app.include_router(billing.sms_router, prefix="/api/v1/sms-credits", tags=["SMS credits"])
+app.include_router(platform.router, prefix="/api/v1/platform", tags=["Platform admin"])
+
+
+@app.exception_handler(TenantViolation)
+async def _tenant_violation(request: Request, exc: TenantViolation):
+    # Never reveal that the other church's record exists.
+    logging.getLogger("app.security").warning("Tenant violation blocked: %s path=%s", exc, request.url.path)
+    return JSONResponse(status_code=404, content={"detail": "Not found"})
 
 
 @app.get("/")
 def root() -> dict:
-    return {"status": "success", "data": {"message": "Living Spring CMS API is running"}}
+    return {"status": "success", "data": {"message": f"{settings.PRODUCT_NAME} API is running"}}
 
 
 @app.get("/health")

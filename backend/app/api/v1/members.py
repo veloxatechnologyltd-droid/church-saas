@@ -1,5 +1,4 @@
-from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 
@@ -14,6 +13,8 @@ from app.db.database import get_db
 from app.schemas.donation import DonationResponse
 from app.schemas.member import MemberCreate, MemberResponse, MemberUpdate
 from app.services.audit import record_audit
+from app.services.plans import enforce_limit
+from app.services.storage import save_image
 
 router = APIRouter()
 
@@ -59,6 +60,7 @@ def create_member(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("church_admin", "secretary")),
 ):
+    enforce_limit(db, current_user.church, "members")
     try:
         member = member_crud.create_member(db, payload)
     except ValueError as exc:
@@ -75,6 +77,8 @@ def get_family_members(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    if not member_crud.get_family(db, family_id):
+        raise HTTPException(status_code=404, detail="Family not found")
     members = member_crud.get_members_by_family(db, family_id)
     low_map = member_crud.build_low_attendance_map(db, [m.id for m in members])
 
@@ -182,21 +186,7 @@ def upload_member_photo(
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
 
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Only image uploads are allowed")
-
-    uploads_dir = Path("uploads/members")
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-
-    extension = Path(file.filename or "").suffix.lower() or ".jpg"
-    safe_filename = f"{member_id}_{uuid4().hex}{extension}"
-    file_path = uploads_dir / safe_filename
-
-    file_bytes = file.file.read()
-    with open(file_path, "wb") as output:
-        output.write(file_bytes)
-
-    photo_url = f"/uploads/members/{safe_filename}"
+    photo_url = save_image(current_user.church_id, "members", file)
     updated = member_crud.update_member(db, member_id, MemberUpdate(photo_url=photo_url))
     record_audit(db, user_id=current_user.id, action="updated", table_name="members", record_id=member_id, new_value={"photo_url": photo_url})
     db.commit()

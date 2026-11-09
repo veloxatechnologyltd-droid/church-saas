@@ -162,6 +162,10 @@ def get_member_history(
 ):
     if current_user.role not in {"church_admin", "finance"} and str(current_user.member_id) != str(member_id):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
+    from app.crud.member import get_member
+
+    if not get_member(db, member_id):
+        raise HTTPException(status_code=404, detail="Member not found")
     rows = donation_crud.member_history(db, member_id)
     return {"status": "success", "data": [serialize_donation(row) for row in rows]}
 
@@ -323,17 +327,39 @@ def annual_report(
 @router.get("/member/{member_id}/statement")
 def member_statement(
     member_id: UUID,
+    year: int | None = Query(default=None, ge=2000, le=2100),
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("church_admin", "finance")),
 ):
+    """Contribution statement for one member (optionally one calendar year), with
+    per-fund totals and the church's details, ready to print or send."""
+    from app.crud.member import get_member
+
+    member = get_member(db, member_id)
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
     rows = donation_crud.member_history(db, member_id)
+    if year:
+        rows = [row for row in rows if row.donation_date and row.donation_date.year == year]
     total = sum(float(row.amount) for row in rows)
+    by_fund: dict[str, float] = {}
+    for row in rows:
+        name = row.fund.name if row.fund else "Other"
+        by_fund[name] = by_fund.get(name, 0.0) + float(row.amount)
+    church = current_user.church
     return {
         "status": "success",
         "data": {
             "member_id": member_id,
+            "member_name": f"{member.first_name} {member.last_name}",
+            "member_phone": member.phone,
+            "member_address": member.address,
+            "church": {"name": church.name, "address": church.address, "phone": church.phone,
+                       "email": church.email, "logo_url": church.logo_url, "currency": church.currency},
+            "year": year,
             "generated_on": date.today().isoformat(),
             "total": total,
+            "by_fund": [{"fund": k, "total": v} for k, v in sorted(by_fund.items(), key=lambda kv: -kv[1])],
             "items": [serialize_donation(row) for row in rows],
         },
     }
