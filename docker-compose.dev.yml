@@ -1,0 +1,34 @@
+# Local development database for the Church SaaS (multi-tenant fork).
+#
+# This is an isolated, throwaway Postgres. It must never point at, copy from, or
+# share credentials with the original Living Spring database.
+#
+#   docker compose -f docker-compose.dev.yml up -d     # start
+#   docker compose -f docker-compose.dev.yml down      # stop (keeps data)
+#   docker compose -f docker-compose.dev.yml down -v   # stop and wipe all data
+#
+# Host port 55440 is deliberately unusual so it cannot collide with a system
+# Postgres (5432) or other projects' containers.
+name: church-saas-dev
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: church-saas-dev-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: church_saas
+      POSTGRES_PASSWORD: church_saas_dev
+      POSTGRES_DB: church_saas
+    ports:
+      - "127.0.0.1:55440:5432"
+    volumes:
+      - church_saas_dev_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U church_saas -d church_saas"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  church_saas_dev_pgdata:
