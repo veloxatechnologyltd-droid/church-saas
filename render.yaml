@@ -2,15 +2,16 @@
 # Deploy: Dashboard → New → Blueprint → connect this repo (or paste this file).
 #
 # After first deploy:
-# 1. Set DATABASE_URL (Render PostgreSQL or Supabase).
+# 1. Set DATABASE_URL to a NEW database created for this product (never the original
+#    Living Spring database). Render PostgreSQL or a new Supabase project.
 # 2. Set SECRET_KEY (long random string).
 # 3. Set CORS_ORIGINS to your Vercel URL(s), comma-separated, e.g.:
-#    https://your-app.vercel.app,https://your-app-git-main-yourteam.vercel.app
+#    https://<new-frontend>.vercel.app,https://<new-frontend>-git-main-<team>.vercel.app
 # 4. Run migrations if preDeployCommand did not run: render shell → cd backend → alembic upgrade head
 
 services:
   - type: web
-    name: living-spring-api
+    name: church-saas-api
     runtime: python
     region: frankfurt
     plan: free
@@ -38,13 +39,13 @@ services:
       - key: ARKESEL_API_KEY
         sync: false
       - key: ARKESEL_SENDER_ID
-        value: LivingSpring
+        value: CHURCH
       - key: ARKESEL_BASE_URL
         value: https://sms.arkesel.com
       - key: MOOLRE_VAS_KEY
         sync: false
       - key: MOOLRE_SENDER_ID
-        value: LivingSpring
+        value: CHURCH
       - key: MOOLRE_BASE_URL
         value: https://api.moolre.com
 
@@ -53,7 +54,7 @@ services:
   # Cron jobs require a paid Render plan; use an external cron service if
   # you prefer to keep the web service on the free plan.
   - type: cron
-    name: living-spring-reminders
+    name: church-saas-reminders
     runtime: python
     region: frankfurt
     plan: starter
@@ -71,12 +72,12 @@ services:
       - key: ARKESEL_API_KEY
         sync: false
       - key: ARKESEL_SENDER_ID
-        value: LivingSpring
+        value: CHURCH
       - key: ARKESEL_BASE_URL
         value: https://sms.arkesel.com
       - key: MOOLRE_VAS_KEY
         sync: false
       - key: MOOLRE_SENDER_ID
-        value: LivingSpring
+        value: CHURCH
       - key: MOOLRE_BASE_URL
         value: https://api.moolre.com
