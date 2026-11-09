@@ -6,6 +6,7 @@ from datetime import date, datetime, timezone
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from app.core.security import hash_password
 from app.models import (
     AttendanceRecord, AttendanceSession, Branch, Church, Donation, DonationFund, Expense,
     ExpenseCategory, Family, Group, GroupMember, Member, Membership, User,
@@ -42,9 +43,14 @@ def make_branch(db, church, name="Main", is_main=False) -> Branch:
     return _flush(db, Branch(church_id=church.id, name=name, is_main=is_main))
 
 
-def make_user(db, email: str | None = None) -> User:
-    # users.role is deprecated but still NOT NULL until the Phase 2 migration.
-    return _flush(db, User(email=email or f"{uuid.uuid4().hex[:8]}@example.com", hashed_password="x", role="member"))
+DEFAULT_PASSWORD = "correct-horse-battery"
+
+
+def make_user(db, email: str | None = None, password: str = DEFAULT_PASSWORD, **kw) -> User:
+    return _flush(
+        db,
+        User(email=email or f"{uuid.uuid4().hex[:8]}@example.com", hashed_password=hash_password(password), **kw),
+    )
 
 
 def make_member(db, church, first="Ama", last="Mensah", **kw) -> Member:

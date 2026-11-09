@@ -10,6 +10,7 @@ from app.db.database import Base
 from tests.conftest import run_alembic
 
 PRE_TENANCY_REVISION = "20260729_000010"
+PRE_AUTH_REVISION = "20261109_000013"
 
 TENANT_TABLES = [
     "families", "members", "attendance_sessions", "attendance_records",
@@ -19,12 +20,13 @@ TENANT_TABLES = [
     "pastoral_logs", "audit_logs",
 ]
 # Tables that legitimately have no church_id. Anything new must be added here on purpose.
-GLOBAL_TABLES = {"users", "churches"}
+GLOBAL_TABLES = {"users", "churches", "password_reset_tokens"}
 # Tables that carry a nullable branch column, and its name.
 BRANCH_COLUMNS = {
     "members": "home_branch_id", "attendance_sessions": "branch_id", "finance_batches": "branch_id",
     "donations": "branch_id", "expenses": "branch_id", "groups": "branch_id", "events": "branch_id",
     "announcements": "branch_id", "pastoral_logs": "branch_id", "memberships": "branch_id",
+    "invitations": "branch_id",
 }
 
 
@@ -51,7 +53,7 @@ def test_every_table_is_tenant_scoped_or_explicitly_global(migrated_engine):
         fks = [fk for fk in insp.get_foreign_keys(table) if fk["constrained_columns"] == ["church_id"]]
         assert fks and fks[0]["referred_table"] == "churches", f"{table}.church_id must reference churches.id"
         scoped.add(table)
-    assert set(TENANT_TABLES) | {"branches", "memberships"} == scoped
+    assert set(TENANT_TABLES) | {"branches", "memberships", "invitations"} == scoped
 
 
 def test_branch_columns_exist_and_are_nullable(migrated_engine):
@@ -63,7 +65,7 @@ def test_branch_columns_exist_and_are_nullable(migrated_engine):
 
 def test_every_tenant_table_leads_an_index_with_church_id(migrated_engine):
     insp = inspect(migrated_engine)
-    for table in TENANT_TABLES + ["branches", "memberships"]:
+    for table in TENANT_TABLES + ["branches", "memberships", "invitations"]:
         leading = [ix["column_names"][0] for ix in insp.get_indexes(table)]
         leading += [uq["column_names"][0] for uq in insp.get_unique_constraints(table)]
         assert "church_id" in leading, f"{table} has no index/unique starting with church_id"
@@ -127,4 +129,56 @@ def test_custom_row_in_a_seeded_table_fails_loudly_and_rolls_back(scratch_databa
     assert _revision(engine) == PRE_TENANCY_REVISION
     with engine.connect() as conn:  # the seed deletion rolled back with the failed migration
         assert conn.execute(text("SELECT count(*) FROM groups")).scalar() == 11
+    engine.dispose()
+
+
+# ------------------------------------------------------- migration 000014 (auth)
+
+def test_users_no_longer_hold_a_role_or_member_link(migrated_engine):
+    columns = {c["name"]: c for c in inspect(migrated_engine).get_columns("users")}
+    assert "role" not in columns and "member_id" not in columns
+    assert columns["is_platform_admin"]["nullable"] is False
+    assert columns["password_changed_at"]["nullable"] is True
+
+
+def test_new_users_are_not_platform_admins_by_default(session):
+    from tests.helpers import make_user
+    user = make_user(session)
+    session.refresh(user)
+    assert user.is_platform_admin is False and user.password_changed_at is None
+
+
+def test_auth_migration_refuses_a_database_that_already_has_users(scratch_database):
+    url = scratch_database("hasusers")
+    engine = create_engine(url)
+    run_alembic(url, "upgrade", PRE_AUTH_REVISION)
+    with engine.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO users (id, email, hashed_password, role, is_active) "
+            "VALUES (gen_random_uuid(), 'old@example.com', 'x', 'superadmin', true)"
+        ))
+    result = run_alembic(url, "upgrade", "head", check=False)
+    assert result.returncode != 0 and "users already contains rows" in result.stderr
+    assert _revision(engine) == PRE_AUTH_REVISION
+    assert "role" in {c["name"] for c in inspect(engine).get_columns("users")}  # nothing dropped
+    engine.dispose()
+
+
+def test_auth_downgrade_restores_roles_from_memberships(scratch_database):
+    url = scratch_database("authdown")
+    engine = create_engine(url)
+    run_alembic(url, "upgrade", "head")
+    with engine.begin() as conn:
+        church_id = conn.execute(text("INSERT INTO churches (id, name, slug) VALUES (gen_random_uuid(), 'A', 'a-church') RETURNING id")).scalar()
+        for email in ("admin@example.com", "fin@example.com", "nobody@example.com"):
+            conn.execute(text("INSERT INTO users (id, email, hashed_password) VALUES (gen_random_uuid(), :e, 'x')"), {"e": email})
+        for email, role in (("admin@example.com", "church_admin"), ("fin@example.com", "finance")):
+            conn.execute(
+                text("INSERT INTO memberships (id, church_id, user_id, role) SELECT gen_random_uuid(), :c, id, :r FROM users WHERE email = :e"),
+                {"c": church_id, "r": role, "e": email},
+            )
+    run_alembic(url, "downgrade", PRE_AUTH_REVISION)
+    with engine.connect() as conn:
+        roles = dict(conn.execute(text("SELECT email, role FROM users")).all())
+    assert roles == {"admin@example.com": "superadmin", "fin@example.com": "finance", "nobody@example.com": "member"}
     engine.dispose()

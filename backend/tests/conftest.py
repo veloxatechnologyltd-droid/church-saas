@@ -24,11 +24,22 @@ TEST_DB_NAME = "church_saas_test"
 # Resolve the base (dev) URL the same way the app would, then derive the test URL.
 os.chdir(BACKEND_DIR)  # so pydantic-settings finds backend/.env
 sys.path.insert(0, str(BACKEND_DIR))
-from app.core.config import Settings  # noqa: E402
+from app.core.config import settings  # noqa: E402
 
-_base_url = make_url(Settings().DATABASE_URL)
+_base_url = make_url(settings.DATABASE_URL)
 TEST_URL = _base_url.set(database=TEST_DB_NAME).render_as_string(hide_password=False)
-os.environ["DATABASE_URL"] = TEST_URL
+os.environ["DATABASE_URL"] = TEST_URL  # for the alembic subprocesses
+# The settings singleton was built (from .env) before the override above, and importing
+# app.core.config already ran it. Re-point it BEFORE app.db.database builds its engine,
+# so application code under test can never reach the dev database.
+settings.DATABASE_URL = TEST_URL
+assert make_url(settings.DATABASE_URL).database.endswith("_test")
+
+# bcrypt at production cost makes hundreds of test logins crawl; cost 4 is the minimum.
+import app.core.security as _security  # noqa: E402
+from passlib.context import CryptContext  # noqa: E402
+
+_security.pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__rounds=4)
 
 
 def _assert_safe(db_name: str, host: str | None) -> None:
@@ -117,3 +128,28 @@ def scratch_database():
         with admin.cursor() as cur:
             cur.execute(f'DROP DATABASE IF EXISTS "{name}"')
         admin.close()
+
+
+@pytest.fixture()
+def outbox():
+    """Captures every email the app tries to send."""
+    from app.services.email import FakeEmailSender
+
+    return FakeEmailSender()
+
+
+@pytest.fixture()
+def client(session, outbox):
+    """The real FastAPI app, wired to the per-test rolled-back session and the fake mailer."""
+    from fastapi.testclient import TestClient
+
+    from app.db.database import get_db
+    from app.main import app
+    from app.services.email import get_email_sender
+
+    app.dependency_overrides[get_db] = lambda: session
+    app.dependency_overrides[get_email_sender] = lambda: outbox
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.clear()
