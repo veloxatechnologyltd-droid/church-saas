@@ -107,7 +107,11 @@ def list_churches(
     total = query.count()
     churches = query.order_by(Church.created_at.desc()).offset(skip).limit(limit).all()
     ids = [c.id for c in churches]
-    members = dict(db.query(Member.church_id, func.count(Member.id)).filter(Member.church_id.in_(ids)).group_by(Member.church_id).all())
+    members = dict(
+        db.query(Member.church_id, func.count(Member.id))
+        .filter(Member.church_id.in_(ids), func.coalesce(Member.membership_status, "active") != "inactive")
+        .group_by(Member.church_id).all()
+    )
     users = dict(
         db.query(Membership.church_id, func.count(Membership.id))
         .filter(Membership.church_id.in_(ids), Membership.is_active.is_(True))

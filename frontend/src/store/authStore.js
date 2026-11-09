@@ -24,7 +24,7 @@ export const useAuthStore = create(
           token: data.access_token,
           user: data.user,
           churches: data.churches ?? [],
-          activeChurch: data.active_church ?? null,
+          activeChurch: 'active_church' in data ? data.active_church : get().activeChurch,
           billingNotice: null,
           suspension: null,
         }),
@@ -32,7 +32,7 @@ export const useAuthStore = create(
         set({
           user: data.user ?? get().user,
           churches: data.churches ?? get().churches,
-          activeChurch: data.active_church ?? null,
+          activeChurch: 'active_church' in data ? data.active_church : get().activeChurch,
         }),
       updateActiveChurch: (partial) => {
         const active = get().activeChurch;
@@ -52,7 +52,7 @@ export const useAuthStore = create(
           token: data.access_token,
           user: data.user,
           churches: data.churches ?? [],
-          activeChurch: data.active_church ?? null,
+          activeChurch: 'active_church' in data ? data.active_church : get().activeChurch,
           billingNotice: null,
           suspension: null,
         });

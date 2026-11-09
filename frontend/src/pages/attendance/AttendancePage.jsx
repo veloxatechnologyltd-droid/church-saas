@@ -14,7 +14,7 @@ import {
 } from '../../hooks/useAttendance';
 import { useMembers } from '../../hooks/useMembers';
 import { CHURCH_SERVICE_TYPES } from '../../utils/constants';
-import { formatDate } from '../../utils/formatters';
+import { formatDate, todayISO } from '../../utils/formatters';
 import SelfCheckinPanel from './SelfCheckinPanel';
 
 function sessionTypeLabel(value) {
@@ -32,8 +32,8 @@ export default function AttendancePage() {
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [statusMap, setStatusMap] = useState({});
   const [search, setSearch] = useState('');
-  const [quickDate, setQuickDate] = useState('');
-  const [quickStartTime, setQuickStartTime] = useState('');
+  const [quickDate, setQuickDate] = useState(todayISO());
+  const [quickStartTime, setQuickStartTime] = useState(() => new Date().toTimeString().slice(0, 5));
   const [quickType, setQuickType] = useState('');
   const [dirty, setDirty] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
@@ -41,7 +41,7 @@ export default function AttendancePage() {
 
   const sessionsQuery = useAttendanceSessions({ skip: 0, limit: 20 });
   const summaryQuery = useAttendanceSummary();
-  const membersQuery = useMembers({ skip: 0, limit: 100 });
+  const membersQuery = useMembers({ skip: 0, limit: 2000, status: 'active' });
   const selectedSessionQuery = useAttendanceSession(selectedSessionId || null);
   const createMutation = useCreateAttendanceSession();
   const markMutation = useMarkAttendance(selectedSessionId);

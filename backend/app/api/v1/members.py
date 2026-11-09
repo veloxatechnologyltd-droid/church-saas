@@ -37,7 +37,8 @@ def _serialize_donation_activity(row) -> dict:
 @router.get("/")
 def list_members(
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=20, ge=1, le=100),
+    # Up to 2000 so screens like the attendance board can load a whole congregation.
+    limit: int = Query(default=20, ge=1, le=2000),
     search: str | None = None,
     status_filter: str | None = Query(default=None, alias="status"),
     db: Session = Depends(get_db),

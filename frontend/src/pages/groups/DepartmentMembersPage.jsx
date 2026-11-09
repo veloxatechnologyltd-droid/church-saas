@@ -22,7 +22,7 @@ export default function DepartmentMembersPage() {
     queryKey: ['group', id],
     queryFn: () => groupsService.get(id).then((response) => response.data.data),
   });
-  const membersQuery = useMembers({ limit: 100, status: 'active' });
+  const membersQuery = useMembers({ limit: 2000, status: 'active' });
   const groupMembersQuery = useQuery({
     queryKey: ['group-members', id],
     queryFn: () => groupsService.getMembers(id).then((response) => response.data.data),

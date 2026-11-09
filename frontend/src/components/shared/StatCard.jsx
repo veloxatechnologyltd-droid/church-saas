@@ -38,7 +38,14 @@ export default function StatCard({ label, value, helper, tone = 'default', icon:
       )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
-        <p className={`mt-1 break-words text-[clamp(1.1rem,1.7vw,1.5rem)] font-extrabold leading-none ${config.valueColor}`}>{value}</p>
+        <p
+          title={typeof value === 'string' ? value : undefined}
+          className={`mt-1 truncate whitespace-nowrap font-extrabold leading-tight ${
+            String(value ?? '').length > 9 ? 'text-[clamp(1rem,1.3vw,1.35rem)]' : 'text-[clamp(1.1rem,1.7vw,1.5rem)]'
+          } ${config.valueColor}`}
+        >
+          {value}
+        </p>
         {helper ? <p className="mt-1.5 truncate text-xs text-slate-400">{helper}</p> : null}
       </div>
     </article>

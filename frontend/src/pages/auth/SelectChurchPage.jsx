@@ -18,8 +18,10 @@ export default function SelectChurchPage() {
 
   useEffect(() => {
     if (!token) return;
-    authService.churches().then((r) => setMe({ churches: r.data.data, active_church: null })).catch(() => {});
-  }, [token, setMe]);
+    authService.churches().then((r) => setMe({ churches: r.data.data })).catch(() => {});
+  // Only on mount: switching church issues a new token and must not refetch here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!token) return <Navigate to="/login" replace />;
 
