@@ -15,6 +15,8 @@ Migrations are managed with **Alembic**.
 | `branches` | Locations inside a church; one is the main branch |
 | `memberships` | A user's role in one church (church-wide or one branch) |
 | `users` | Global login identity (email + password). One login can belong to many churches |
+| `invitations` | Pending invitations to join a church (token stored as a hash) |
+| `password_reset_tokens` | Single-use password reset tokens (stored as a hash) |
 | `members` | Church member profiles |
 | `families` | Family groupings |
 | `attendance_sessions` | A single service/event attendance was taken for |
@@ -40,8 +42,8 @@ Migrations are managed with **Alembic**.
 This is the multi-tenant fork; read `docs/SAAS.md` for the architecture. The schema
 below was written for a single church. These rules apply on top of every table in it:
 
-- **Every tenant table has `church_id UUID NOT NULL` -> `churches.id`** (19 tables:
-  everything below except `users`). No `ON DELETE`: a church that still has data cannot
+- **Every tenant table has `church_id UUID NOT NULL` -> `churches.id`** (everything below
+  except `users`, `churches` and `password_reset_tokens`). No `ON DELETE`: a church that still has data cannot
   be deleted by accident.
 - **`branch_id` (nullable)** is on `attendance_sessions`, `finance_batches`, `donations`,
   `expenses`, `groups`, `events`, `announcements`, `pastoral_logs`; members have
@@ -113,10 +115,39 @@ UNIQUE (user_id, church_id)
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 email           VARCHAR UNIQUE NOT NULL
 hashed_password VARCHAR NOT NULL
-role            VARCHAR NOT NULL  -- DEPRECATED: use memberships.role. Dropped in Phase 2.
 is_active       BOOLEAN DEFAULT TRUE
-member_id       UUID FK members.id NULLABLE  -- DEPRECATED: use memberships.member_id. Dropped in Phase 2.
+is_platform_admin BOOLEAN NOT NULL DEFAULT FALSE  -- product owner's operators; not a church role
+password_changed_at TIMESTAMPTZ NULLABLE  -- tokens issued before this are rejected
 created_at      TIMESTAMP DEFAULT NOW()
+```
+The role and member profile live on `memberships` (per church); `users.role` and
+`users.member_id` were dropped in migration 000014.
+
+### `invitations`
+```sql
+id          UUID PRIMARY KEY
+church_id   UUID FK churches.id NOT NULL
+email       VARCHAR NOT NULL            -- lower-cased
+role        VARCHAR NOT NULL            -- church role the invitee will get
+branch_id   UUID NULLABLE               -- same church (composite FK)
+member_id   UUID NULLABLE               -- same church (composite FK)
+token_hash  VARCHAR UNIQUE NOT NULL     -- SHA-256 of the emailed token; the token itself is never stored
+invited_by  UUID FK users.id ON DELETE SET NULL
+expires_at  TIMESTAMPTZ NOT NULL
+accepted_at TIMESTAMPTZ NULLABLE
+revoked_at  TIMESTAMPTZ NULLABLE
+created_at  TIMESTAMPTZ
+-- one pending (not accepted, not revoked) invitation per (church_id, email)
+```
+
+### `password_reset_tokens`  (global)
+```sql
+id          UUID PRIMARY KEY
+user_id     UUID FK users.id ON DELETE CASCADE NOT NULL
+token_hash  VARCHAR UNIQUE NOT NULL     -- SHA-256 of the emailed token
+expires_at  TIMESTAMPTZ NOT NULL
+used_at     TIMESTAMPTZ NULLABLE
+created_at  TIMESTAMPTZ
 ```
 
 ### `members`

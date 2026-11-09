@@ -12,13 +12,13 @@ Each module has a backend router, CRUD file, model, schema, and a frontend page 
 | Method | Path | Role Required | Description |
 |---|---|---|---|
 | GET | / | any | List all members (paginated, searchable) |
-| POST | / | superadmin, secretary | Create new member |
+| POST | / | church_admin, secretary | Create new member |
 | GET | /{id} | any | Get member profile |
-| PUT | /{id} | superadmin, secretary | Update member |
-| DELETE | /{id} | superadmin | Soft delete member |
-| POST | /{id}/photo | superadmin, secretary | Upload member photo |
+| PUT | /{id} | church_admin, secretary | Update member |
+| DELETE | /{id} | church_admin | Soft delete member |
+| POST | /{id}/photo | church_admin, secretary | Upload member photo |
 | GET | /family/{family_id} | any | Get all members in a family |
-| GET | /export | superadmin, secretary | Export member list to CSV |
+| GET | /export | church_admin, secretary | Export member list to CSV |
 
 ### Key Business Logic
 - Family association is optional; members may be registered as individuals
@@ -39,9 +39,9 @@ Each module has a backend router, CRUD file, model, schema, and a frontend page 
 | Method | Path | Role Required | Description |
 |---|---|---|---|
 | GET | /sessions | any | List attendance sessions |
-| POST | /sessions | superadmin, secretary | Create new session |
+| POST | /sessions | church_admin, secretary | Create new session |
 | GET | /sessions/{id} | any | Get session with all records |
-| POST | /sessions/{id}/mark | superadmin, secretary | Mark attendance for members |
+| POST | /sessions/{id}/mark | church_admin, secretary | Mark attendance for members |
 | GET | /member/{id} | any | Get attendance history for a member |
 | GET | /summary | any | Attendance summary stats |
 
@@ -64,24 +64,24 @@ The finance domain should cover both **giving** and **church financial operation
 ### Endpoints
 | Method | Path | Role Required | Description |
 |---|---|---|---|
-| GET | / | superadmin, finance | List all giving records |
-| POST | / | superadmin, finance | Record a giving transaction |
-| GET | /{id} | superadmin, finance | Get giving transaction details |
-| GET | /member/{id} | any (own) superadmin, finance (others) | Member giving history |
+| GET | / | church_admin, finance | List all giving records |
+| POST | / | church_admin, finance | Record a giving transaction |
+| GET | /{id} | church_admin, finance | Get giving transaction details |
+| GET | /member/{id} | any (own) church_admin, finance (others) | Member giving history |
 | GET | /funds | any | List all church funds and giving categories |
-| GET | /batches | superadmin, finance | List service batches |
-| POST | /batches | superadmin, finance | Open a service batch for a service or event |
-| POST | /batches/{id}/close | superadmin, finance | Close a reviewed service batch |
-| POST | /funds | superadmin | Create church fund |
-| POST | /funds/bootstrap | superadmin | Load standard church finance funds |
+| GET | /batches | church_admin, finance | List service batches |
+| POST | /batches | church_admin, finance | Open a service batch for a service or event |
+| POST | /batches/{id}/close | church_admin, finance | Close a reviewed service batch |
+| POST | /funds | church_admin | Create church fund |
+| POST | /funds/bootstrap | church_admin | Load standard church finance funds |
 | GET | /expense-categories | any | List finance expense categories |
-| POST | /expense-categories | superadmin | Create expense category |
-| POST | /expense-categories/bootstrap | superadmin | Load standard expense categories |
-| GET | /expenses | superadmin, finance | List church expense records |
-| POST | /expenses | superadmin, finance | Record an expense |
-| GET | /reports/monthly | superadmin, finance | Monthly giving report |
-| GET | /reports/annual | superadmin, finance | Annual giving statement |
-| GET | /member/{id}/statement | superadmin, finance | Member giving statement |
+| POST | /expense-categories | church_admin | Create expense category |
+| POST | /expense-categories/bootstrap | church_admin | Load standard expense categories |
+| GET | /expenses | church_admin, finance | List church expense records |
+| POST | /expenses | church_admin, finance | Record an expense |
+| GET | /reports/monthly | church_admin, finance | Monthly giving report |
+| GET | /reports/annual | church_admin, finance | Annual giving statement |
+| GET | /member/{id}/statement | church_admin, finance | Member giving statement |
 
 ### Key Business Logic
 - Finance should classify giving by church context, not generic donation-only language. Standard funds should include: `tithe`, `offering`, `harvest`, `missions`, `welfare`, `building`, `thanksgiving`, and other custom church funds.
@@ -105,12 +105,12 @@ The finance domain should cover both **giving** and **church financial operation
 | Method | Path | Role Required | Description |
 |---|---|---|---|
 | GET | / | any | List all groups |
-| POST | / | superadmin, secretary | Create department |
-| PUT | /{id} | superadmin, secretary | Update department |
-| DELETE | /{id} | superadmin | Deactivate department |
+| POST | / | church_admin, secretary | Create department |
+| PUT | /{id} | church_admin, secretary | Update department |
+| DELETE | /{id} | church_admin | Deactivate department |
 | GET | /{id}/members | any | List members in department |
-| POST | /{id}/members | superadmin, secretary, group_leader | Add member |
-| DELETE | /{id}/members/{member_id} | superadmin, secretary, group_leader | Remove member |
+| POST | /{id}/members | church_admin, secretary, group_leader | Add member |
+| DELETE | /{id}/members/{member_id} | church_admin, secretary, group_leader | Remove member |
 
 ### Key Business Logic
 - A department is one complete ministry/team; there are no units underneath it
@@ -129,12 +129,12 @@ The finance domain should cover both **giving** and **church financial operation
 | Method | Path | Role Required | Description |
 |---|---|---|---|
 | GET | / | any | List upcoming events |
-| POST | / | superadmin, secretary | Create event |
-| PUT | /{id} | superadmin, secretary | Update event |
-| DELETE | /{id} | superadmin | Delete event |
+| POST | / | church_admin, secretary | Create event |
+| PUT | /{id} | church_admin, secretary | Update event |
+| DELETE | /{id} | church_admin | Delete event |
 | POST | /{id}/register | any | Register member for event |
-| GET | /{id}/registrations | superadmin, secretary | List registrations |
-| POST | /remind | superadmin, secretary | Send reminder for upcoming events |
+| GET | /{id}/registrations | church_admin, secretary | List registrations |
+| POST | /remind | church_admin, secretary | Send reminder for upcoming events |
 
 ### Key Business Logic
 - Auto-send SMS/email 24 hours before an event (background task)
@@ -150,18 +150,18 @@ The finance domain should cover both **giving** and **church financial operation
 ### Endpoints
 | Method | Path | Role Required | Description |
 |---|---|---|---|
-| POST | /sms | superadmin, secretary | Send bulk SMS |
-| POST | /email | superadmin, secretary | Send bulk email |
-| GET | /history | superadmin, secretary | View all sent communications |
+| POST | /sms | church_admin, secretary | Send bulk SMS |
+| POST | /email | church_admin, secretary | Send bulk email |
+| GET | /history | church_admin, secretary | View all sent communications |
 | GET | /reminders | any | List recurring SMS reminders |
-| POST | /reminders | superadmin, secretary, group_leader | Create weekly SMS reminder |
-| PUT | /reminders/{id} | superadmin, secretary, group_leader | Update reminder |
-| DELETE | /reminders/{id} | superadmin, secretary, group_leader | Pause reminder |
-| POST | /reminders/run-due | superadmin, secretary | Process due reminders |
-| POST | /announcement | superadmin, secretary | Post announcement (in-app) |
+| POST | /reminders | church_admin, secretary, group_leader | Create weekly SMS reminder |
+| PUT | /reminders/{id} | church_admin, secretary, group_leader | Update reminder |
+| DELETE | /reminders/{id} | church_admin, secretary, group_leader | Pause reminder |
+| POST | /reminders/run-due | church_admin, secretary | Process due reminders |
+| POST | /announcement | church_admin, secretary | Post announcement (in-app) |
 | GET | /announcements | any | List active announcements |
-| PUT | /announcements/{id} | superadmin, secretary | Edit announcement |
-| DELETE | /announcements/{id} | superadmin, secretary | Archive announcement |
+| PUT | /announcements/{id} | church_admin, secretary | Edit announcement |
+| DELETE | /announcements/{id} | church_admin, secretary | Archive announcement |
 
 ### Key Business Logic
 - SMS via the configured Arkesel or Moolre REST API (Ghana providers)
@@ -232,12 +232,12 @@ GET `/api/v1/reports/dashboard` — returns:
 ### Endpoints
 | Method | Path | Role Required | Description |
 |---|---|---|---|
-| GET | / | superadmin, secretary, group_leader | List pastoral care records |
-| GET | /summary | superadmin, secretary, group_leader | Count open, overdue, due-today, and completed work |
-| GET | /attendance-risks | superadmin, secretary | List attendance and inactive-member concerns without an open follow-up |
-| GET | /assignees | superadmin, secretary | List staff eligible to own pastoral care |
-| POST | / | superadmin, secretary | Create and assign a care plan |
-| PUT | /{id} | superadmin, secretary, assigned group_leader | Edit, complete, or reopen a care plan |
+| GET | / | church_admin, secretary, group_leader | List pastoral care records |
+| GET | /summary | church_admin, secretary, group_leader | Count open, overdue, due-today, and completed work |
+| GET | /attendance-risks | church_admin, secretary | List attendance and inactive-member concerns without an open follow-up |
+| GET | /assignees | church_admin, secretary | List staff eligible to own pastoral care |
+| POST | / | church_admin, secretary | Create and assign a care plan |
+| PUT | /{id} | church_admin, secretary, assigned group_leader | Edit, complete, or reopen a care plan |
 
 ### Key Business Logic
 - Care plans may cover visits, calls, counselling, prayer, and welfare actions.

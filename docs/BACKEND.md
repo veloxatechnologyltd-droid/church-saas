@@ -165,7 +165,7 @@ def list_members(skip: int = 0, limit: int = 100, db: Session = Depends(get_db),
 
 @router.post("/", response_model=MemberResponse, status_code=201)
 def create_member(member: MemberCreate, db: Session = Depends(get_db),
-                  current_user=Depends(require_roles("superadmin", "secretary"))):
+                  current_user=Depends(require_roles("church_admin", "secretary"))):
     return crud.create_member(db, member)
 
 @router.get("/{member_id}", response_model=MemberResponse)
@@ -178,12 +178,12 @@ def get_member(member_id: str, db: Session = Depends(get_db),
 
 @router.put("/{member_id}", response_model=MemberResponse)
 def update_member(member_id: str, member: MemberUpdate, db: Session = Depends(get_db),
-                  current_user=Depends(require_roles("superadmin", "secretary"))):
+                  current_user=Depends(require_roles("church_admin", "secretary"))):
     return crud.update_member(db, member_id, member)
 
 @router.delete("/{member_id}", status_code=204)
 def delete_member(member_id: str, db: Session = Depends(get_db),
-                  current_user=Depends(require_roles("superadmin"))):
+                  current_user=Depends(require_roles("church_admin"))):
     crud.delete_member(db, member_id)
 ```
 

@@ -55,15 +55,19 @@ This repo becomes the multi-tenant SaaS product.
 
 ## Phase 2 — Auth and roles
 
-- [ ] Platform role `platform_admin` (owner only) separate from church roles; rename old `super_admin` to church-level `church_admin`
-- [ ] Update `docs/AUTH.md` with the new role matrix (platform / church-wide / branch-scoped)
-- [ ] JWT carries `sub` (user), `church_id` (active church), `role`, `branch_id` (if scoped)
-- [ ] Login: authenticate user, return list of their churches; auto-select if only one
-- [ ] `POST /auth/switch-church` issues a new token for another church the user belongs to
-- [ ] `get_current_user` validates the membership is active for the token's `church_id`
-- [ ] New dependencies: `get_current_church`, `get_current_membership`, `require_roles(...)` updated for church roles
-- [ ] Invite flow: church admin invites an email into a church with a role/branch (existing user -> adds membership; new user -> set-password link)
-- [ ] Password reset flow (email) if not already present
+- [x] Platform role `platform_admin` (owner only) separate from church roles; rename old `super_admin` to church-level `church_admin`
+      (platform admin = `users.is_platform_admin` flag, read from the DB on every request; `superadmin` -> `church_admin` everywhere in the API)
+- [x] Update `docs/AUTH.md` with the new role matrix (platform / church-wide / branch-scoped)
+- [x] JWT carries `sub` (user), `church_id` (active church), `role`, `branch_id` (if scoped)
+      (role/branch are re-read from the membership on every request; the claims are informational)
+- [x] Login: authenticate user, return list of their churches; auto-select if only one
+- [x] `POST /auth/switch-church` issues a new token for another church the user belongs to
+- [x] `get_current_user` validates the membership is active for the token's `church_id`
+- [x] New dependencies: `get_current_church`, `get_current_membership`, `require_roles(...)` updated for church roles
+      (also `get_session_context`, `require_platform_admin`)
+- [x] Invite flow: church admin invites an email into a church with a role/branch (existing user -> adds membership; new user -> set-password link)
+      (emails go to the server log only: no real mail provider yet, waiting on a dev key)
+- [x] Password reset flow (email) if not already present
 
 ## Phase 3 — Tenant isolation (highest risk, do not skip)
 
@@ -85,6 +89,7 @@ This repo becomes the multi-tenant SaaS product.
 - [ ] SMS credits per church: balance, deduct on send, block when empty, ledger table
 - [ ] Remove hardcoded "Living Spring" / `livingsspring.org` from `config.py`, `main.py`, `.env.example`, `scripts/seed_superadmin.py`, `README.md`, `docs/*`
 - [ ] Replace `seed_superadmin.py` with a platform bootstrap script (creates `platform_admin`) and the onboarding flow below
+      (bootstrap script done in Phase 2: `scripts/bootstrap_platform_admin.py`; the onboarding flow is Phase 5)
 - [ ] `GET/PUT /church/settings` (branding, contact, timezone, currency, sender ID)
 - [ ] Branch CRUD endpoints (`/branches`)
 

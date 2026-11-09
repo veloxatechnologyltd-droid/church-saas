@@ -8,10 +8,12 @@ credentials, or API keys.**
 `SAAS_CHECKLIST.md` is the master plan and records the decisions below. This file
 describes the resulting architecture and conventions; update it whenever one changes.
 
-> Status: Phases 0 (safe setup) and 1 (tenancy data model) are done. Sections marked
+> Status: Phases 0 (safe setup), 1 (tenancy data model) and 2 (auth and roles) are done. Sections marked
 > **(planned)** describe the target design for later phases and are not implemented
 > yet. **Until Phase 3, the API's write paths do not set `church_id` and will fail**;
-> nothing is deployed, so this is expected. Do not "fix" it piecemeal.
+> nothing is deployed, so this is expected. Do not "fix" it piecemeal. The frontend
+> still uses the old login shape and role names until Phase 6; invitation and reset
+> emails go to the server log (console backend) until a real mail provider is wired up.
 
 ---
 

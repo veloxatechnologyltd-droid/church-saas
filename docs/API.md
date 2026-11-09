@@ -79,13 +79,23 @@ Standard query params:
 
 ## All Endpoints Summary
 
-### Auth
+### Auth and invitations
 ```
-POST   /auth/login
-POST   /auth/register
+POST   /auth/login               # token + the user's churches; auto-selects when there is one
+GET    /auth/churches
+POST   /auth/switch-church       # {church_id} -> token for that church
 GET    /auth/me
-POST   /auth/change-password
+POST   /auth/change-password     # returns a fresh token; older sessions end
+POST   /auth/forgot-password     # public, always the same reply
+POST   /auth/reset-password      # public, single-use token
+POST   /invitations              # church_admin
+GET    /invitations              # church_admin
+DELETE /invitations/{id}         # church_admin
+POST   /invitations/accept       # public
 ```
+The active church comes from the token (`church_id`), never from a request body, path or
+query. `POST /auth/register` was removed: people join through invitations. Full details
+and the role list are in `docs/AUTH.md`.
 
 ### Members
 ```
@@ -198,7 +208,7 @@ PUT    /pastoral/{id}                   # edit, complete, or reopen
 GET    /audit
 ```
 
-Superadmins and secretaries can create, assign, and manage all pastoral care
+Church admins and secretaries can create, assign, and manage all pastoral care
 records. Group leaders can view and update only care assigned to them.
 
 ### Reports
