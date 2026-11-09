@@ -39,7 +39,7 @@ export default function MembersPage() {
   const activeCount = rows.filter((row) => row.membership_status === 'active').length;
   const lowAttendanceCount = rows.filter((row) => row.low_attendance).length;
 
-  const canEditStatus = ['superadmin', 'secretary'].includes(user?.role);
+  const canEditStatus = ['church_admin', 'secretary'].includes(user?.role);
 
   async function onStatusChange(memberId, nextStatus) {
     setMessage('');

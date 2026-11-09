@@ -24,6 +24,7 @@ import {
 } from '../../hooks/useReports';
 import { useAuthStore } from '../../store/authStore';
 import { formatCurrency } from '../../utils/formatters';
+import OutreachSnapshot from './OutreachSnapshot';
 
 const quickActions = [
   {
@@ -78,7 +79,7 @@ function ProgressBar({ label, value, max, color = 'bg-brand-700' }) {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuthStore();
+  const { user, activeChurch } = useAuthStore();
   const dashboardQuery = useDashboardReport();
   const attendanceTrendQuery = useAttendanceMonthlyReport();
   const donationsTrendQuery = useDonationsMonthlyReport();
@@ -108,9 +109,11 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-extrabold text-slate-900">
             {getGreeting()}{user?.email ? ` 👋` : ''}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">{today} — Here's what's happening at Living Springs.</p>
+          <p className="mt-1 text-sm text-slate-500">{today} — Here's what's happening at {activeChurch?.name ?? 'your church'}.</p>
         </div>
       </div>
+
+      <OutreachSnapshot />
 
       {/* Stat cards row */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -263,7 +266,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Pastoral alert */}
-      {['superadmin', 'secretary', 'group_leader'].includes(user?.role)
+      {['church_admin', 'secretary', 'group_leader'].includes(user?.role)
         && ((metrics.overdue_pastoral_followups ?? 0) > 0 || (metrics.pastoral_followups_due_today ?? 0) > 0) && (
         <div className="panel flex items-start gap-4 border-l-4 border-accent-700 p-5">
           <AlertTriangle size={20} className="mt-0.5 flex-shrink-0 text-accent-700" />
@@ -281,7 +284,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {['superadmin', 'secretary'].includes(user?.role) && (metrics.low_attendance_members ?? 0) > 0 && (
+      {['church_admin', 'secretary'].includes(user?.role) && (metrics.low_attendance_members ?? 0) > 0 && (
         <div className="panel flex items-start gap-4 border-l-4 border-church-700 p-5">
           <AlertTriangle size={20} className="mt-0.5 flex-shrink-0 text-church-700" />
           <div className="flex-1">

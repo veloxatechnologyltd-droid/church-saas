@@ -1,7 +1,7 @@
 # OVERVIEW.md — Project Overview & Conventions
 
 ## Project
-**Living Spring International Church Management System**
+**Ekklesia — multi-tenant church management SaaS** (forked from the Living Spring CMS)
 Developer: John Evans Okyere | Accra, Ghana | 2026
 
 A web-based church management platform for managing members, attendance, finance, groups, events, and communication.
@@ -84,14 +84,14 @@ CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 
 SENDGRID_API_KEY=
-FROM_EMAIL=noreply@livingsspring.org
+FROM_EMAIL=noreply@example.com
 
 SMS_PROVIDER=arkesel
 ARKESEL_API_KEY=
-ARKESEL_SENDER_ID=LivingSpring
+ARKESEL_SENDER_ID=CHURCH
 ARKESEL_BASE_URL=https://sms.arkesel.com
 MOOLRE_VAS_KEY=
-MOOLRE_SENDER_ID=LivingSpring
+MOOLRE_SENDER_ID=CHURCH
 MOOLRE_BASE_URL=https://api.moolre.com
 ```
 

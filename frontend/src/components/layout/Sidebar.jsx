@@ -1,58 +1,21 @@
-import {
-  BarChart3,
-  Banknote,
-  CalendarDays,
-  HeartPulse,
-  CheckSquare,
-  LayoutDashboard,
-  LogOut,
-  MessageSquare,
-  Users,
-  UsersRound,
-} from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../store/authStore';
-
-const navSections = [
-  {
-    title: 'Core',
-    items: [
-      { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/members', label: 'Members', icon: Users },
-      { to: '/attendance', label: 'Attendance', icon: CheckSquare },
-    ],
-  },
-  {
-    title: 'Ministry',
-    items: [
-      { to: '/finance', label: 'Finance', icon: Banknote },
-      { to: '/groups', label: 'Groups', icon: UsersRound },
-      { to: '/events', label: 'Events', icon: CalendarDays },
-      { to: '/communication', label: 'Communication', icon: MessageSquare },
-      { to: '/pastoral', label: 'Pastoral Care', icon: HeartPulse, roles: ['superadmin', 'secretary', 'group_leader'] },
-      { to: '/reports', label: 'Reports', icon: BarChart3 },
-    ],
-  },
-];
-
-const ROLE_LABELS = {
-  superadmin: 'Super Admin',
-  secretary: 'Secretary',
-  finance: 'Finance Officer',
-  group_leader: 'Group Leader',
-  member: 'Member',
-};
+import { useAuthStore, useRole } from '../../store/authStore';
+import { PRODUCT } from '../../utils/brand';
+import { ROLE_LABELS } from '../../utils/constants';
+import ChurchMark from '../shared/ChurchMark';
+import { navItemsFor } from './navConfig';
 
 function getInitials(user) {
   if (!user) return '?';
-  const email = user.email || '';
-  const parts = email.split('@')[0].split('.');
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return email.slice(0, 2).toUpperCase();
+  const parts = (user.email || '').split('@')[0].split(/[._-]/);
+  if (parts.length >= 2 && parts[1]) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return (user.email || '?').slice(0, 2).toUpperCase();
 }
 
-export default function Sidebar() {
-  const { user, logout } = useAuthStore();
+export default function Sidebar({ onNavigate }) {
+  const { user, activeChurch, logout } = useAuthStore();
+  const role = useRole();
   const navigate = useNavigate();
 
   function onLogout() {
@@ -61,41 +24,34 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="flex h-screen w-56 flex-col border-r border-slate-200 bg-white">
-      {/* Logo / Church identity */}
+    <aside className="flex h-screen w-60 flex-col border-r border-slate-200 bg-white">
       <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
-        <img src="/logo.jpg" alt="Living Springs Church" className="h-10 w-10 rounded-xl object-cover" />
+        <ChurchMark church={activeChurch} />
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold leading-tight text-slate-900">Living Springs</p>
-          <p className="truncate text-[11px] text-slate-500">International Church</p>
+          <p className="truncate text-sm font-bold leading-tight text-slate-900" title={activeChurch?.name}>{activeChurch?.name ?? PRODUCT.name}</p>
+          <p className="truncate text-[11px] text-slate-500">Powered by {PRODUCT.name}</p>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        {navSections.map((section) => (
+      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Main">
+        {navItemsFor(role).map((section) => (
           <div key={section.title} className="mb-5">
             <p className="label-caps mb-2 px-2">{section.title}</p>
             <div className="space-y-0.5">
-              {section.items.filter((item) => !item.roles || item.roles.includes(user?.role)).map(({ to, label, icon: Icon }) => (
+              {section.items.map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
                   to={to}
+                  onClick={onNavigate}
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-brand-700 text-white'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      isActive ? 'bg-brand-700 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`
                   }
                 >
                   {({ isActive }) => (
                     <>
-                      <Icon
-                        size={17}
-                        className={isActive ? 'text-white' : 'text-slate-400'}
-                        strokeWidth={isActive ? 2.5 : 2}
-                      />
+                      <Icon size={17} className={isActive ? 'text-white' : 'text-slate-400'} strokeWidth={isActive ? 2.5 : 2} />
                       {label}
                     </>
                   )}
@@ -106,7 +62,6 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* User profile + logout */}
       <div className="border-t border-slate-100 px-3 py-3">
         <div className="mb-2 flex items-center gap-3 rounded-xl px-2 py-2">
           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-800">
@@ -114,7 +69,7 @@ export default function Sidebar() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-slate-900">{user?.email ?? 'User'}</p>
-            <p className="truncate text-[11px] text-slate-500">{ROLE_LABELS[user?.role] ?? user?.role ?? 'Staff'}</p>
+            <p className="truncate text-[11px] text-slate-500">{ROLE_LABELS[role] ?? role ?? 'Staff'}</p>
           </div>
         </div>
         <button

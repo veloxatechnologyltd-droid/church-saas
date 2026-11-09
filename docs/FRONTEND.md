@@ -64,68 +64,53 @@ frontend/src/
 
 ## Routing (App.jsx)
 
-```jsx
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuthStore } from './store/authStore';
+Routes are lazy-loaded (`React.lazy` + one `Suspense`). Three groups:
 
-function ProtectedRoute({ children, allowedRoles }) {
-  const { user, token } = useAuthStore();
-  if (!token) return <Navigate to="/login" />;
-  if (allowedRoles && !allowedRoles.includes(user?.role)) return <Navigate to="/dashboard" />;
-  return children;
-}
+| Group | Routes | Guard |
+|---|---|---|
+| Public | `/` (landing), `/pricing`, `/signup`, `/login`, `/forgot-password`, `/reset-password?token=`, `/accept-invite?token=`, `/welcome/:slug`, `/pray/:slug`, `/checkin/:code` | none |
+| Signed in, no church shell | `/select-church`, `/platform` (platform admins), `/onboarding`, `/billing/fake-checkout?invoice=` | token (+ church for the last two) |
+| Church app (inside `<Layout />`) | `/dashboard`, `/members…`, `/attendance`, `/visitors`, `/finance/*`, `/pledges`, `/pledges/:id`, `/groups…`, `/events`, `/communication`, `/prayer`, `/pastoral`, `/reports`, `/settings[/:tab]` | `ChurchRoute` |
 
-export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-          <Route index element={<Navigate to="/dashboard" />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="members" element={<MembersPage />} />
-          <Route path="members/:id" element={<MemberProfilePage />} />
-          <Route path="attendance" element={<AttendancePage />} />
-          <Route path="finance" element={<FinanceLayout />}>       // Finance workspace
-            <Route index element={<DonationsPage view="overview" />} />
-            <Route path="giving" element={<DonationsPage view="giving" />} />
-            <Route path="expenses" element={<DonationsPage view="expenses" />} />
-            <Route path="batches" element={<DonationsPage view="batches" />} />
-            <Route path="funds" element={<DonationsPage view="funds" />} />
-            <Route path="reports" element={<DonationsPage view="reports" />} />
-          </Route>
-          <Route path="donations" element={<Navigate to="/finance" replace />} />
-          <Route path="groups" element={<GroupsPage />} />
-          <Route path="events" element={<EventsPage />} />
-          <Route path="communication" element={<CommunicationPage />} />
-          <Route path="reports" element={<ReportsPage />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
-  );
-}
-```
+`ChurchRoute` requires a token **and** an active church. A church-less session goes to
+`/select-church` (several churches) or `/platform` (platform admin with no church). A
+suspended church renders `SuspendedPage`. Role access per route comes from
+`components/layout/navConfig.js` (`ROUTE_ROLES`), the same table that builds the sidebar,
+so the menu and the guard never disagree. `Layout` sends a `church_admin` whose church has
+no `onboarding_completed_at` to `/onboarding`.
+
+Tenant resolution: **slug on login is not needed**. Users sign in with email; the API returns
+their churches. The church slug is used only in public URLs (`/welcome/:slug`, `/pray/:slug`).
+Subdomains/custom domains are a later phase.
 
 ---
 
-## Zustand Auth Store
+## Zustand Auth Store (`store/authStore.js`, persisted as `ekklesia-auth`)
 
-```javascript
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+State: `token`, `user`, `churches[]`, `activeChurch` (null until chosen), `impersonation`
+(the platform admin's saved session while impersonating), plus non-persisted
+`billingNotice` and `suspension`.
 
-export const useAuthStore = create(
-  persist(
-    (set) => ({
-      user: null,
-      token: null,
-      setAuth: (user, token) => set({ user, token }),
-      logout: () => set({ user: null, token: null }),
-    }),
-    { name: 'church-cms-auth' }
-  )
-);
-```
+- `setSession(loginPayload)` after login, signup, switch-church.
+- `setMe(mePayload)` after `GET /auth/me` on app load.
+- `updateActiveChurch(partial)` keeps name/colours/logo in sync after settings changes.
+- `startImpersonation(payload)` / `stopImpersonation()`.
+- `useRole()` returns the role in the active church. Use it instead of `user.role`.
+- `utils/session.js#startSession(payload)` sets the session, applies the theme and returns
+  the landing path.
+
+The axios client (`services/api.js`) handles account states: 401 logs out; 402
+`subscription_required` sets `billingNotice` (red banner, the app stays usable read-only);
+403 `church_suspended` sets `suspension`. `downloadFile(url, name, params)` saves protected
+CSV/XLSX exports.
+
+## Theming
+
+Church colours come from the API (`primary_color`, `secondary_color`). `utils/theme.js`
+turns each into a 50-900 palette of `"R G B"` CSS variables (`--brand-*`, `--church-*`);
+Tailwind's `brand`/`primary` and `church`/`secondary` colours read them, so every existing
+`bg-brand-700`, `text-church-700/50` class is themed. Defaults live in `index.css`. Never
+hardcode a church's name, logo or colours. The product name is `utils/brand.js#PRODUCT`.
 
 ---
 

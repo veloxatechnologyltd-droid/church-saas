@@ -1,38 +1,29 @@
 /** @type {import('tailwindcss').Config} */
+// `brand` (primary) and `church` (secondary) come from the active church's colours via CSS
+// variables set in src/utils/theme.js. `accent` (danger) and `success` are fixed semantics.
+const fromVar = (name) =>
+  Object.fromEntries(
+    [50, 100, 200, 300, 400, 500, 600, 700, 800, 900].map((shade) => [shade, `rgb(var(--${name}-${shade}) / <alpha-value>)`])
+  );
+
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
       colors: {
-        // Cobalt Blue — primary swirl arc in Living Springs logo
-        brand: {
-          50:  '#EEF4FC',
-          100: '#D5E6F9',
-          200: '#A8CCEE',
-          600: '#1E5BB5',
-          700: '#1A4FA0',
-          800: '#153F80',
-          900: '#0E2B58',
-        },
-        // Crimson Red — lower swirl arc + "Living Springs" wordmark
+        brand: fromVar('brand'),
+        primary: fromVar('brand'),
+        church: fromVar('church'),
+        secondary: fromVar('church'),
         accent: {
-          50:  '#FEF2F0',
+          50: '#FEF2F0',
           100: '#FDDBD7',
           600: '#D42A1A',
           700: '#C02416',
           800: '#9A1C10',
         },
-        // Amber Orange — right swirl arc in logo
-        church: {
-          50:  '#FFF8EE',
-          100: '#FFE9C4',
-          600: '#D06A14',
-          700: '#E07218',
-          800: '#B85B12',
-        },
-        // Semantic success green
         success: {
-          50:  '#F0FDF4',
+          50: '#F0FDF4',
           100: '#DCFCE7',
           700: '#15803D',
           800: '#166534',

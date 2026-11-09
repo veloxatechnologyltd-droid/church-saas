@@ -1,18 +1,17 @@
-import { Banknote, BarChart3, CheckSquare, LayoutDashboard, Users } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
-
-const mobileItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/members', label: 'Members', icon: Users },
-  { to: '/attendance', label: 'Attendance', icon: CheckSquare },
-  { to: '/finance', label: 'Finance', icon: Banknote },
-  { to: '/reports', label: 'Reports', icon: BarChart3 },
-];
+import { useRole } from '../../store/authStore';
+import { MOBILE_ITEMS, navItemsFor } from './navConfig';
 
 export default function MobileNav() {
+  const role = useRole();
+  const items = navItemsFor(role)
+    .flatMap((section) => section.items)
+    .filter((item) => MOBILE_ITEMS.includes(item.to))
+    .slice(0, 5);
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-slate-200 bg-white lg:hidden">
-      {mobileItems.map(({ to, label, icon: Icon }) => (
+    <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden" aria-label="Quick">
+      {items.map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}
@@ -25,7 +24,7 @@ export default function MobileNav() {
           {({ isActive }) => (
             <>
               <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
-              {label}
+              <span className="max-w-full truncate px-1">{label}</span>
             </>
           )}
         </NavLink>

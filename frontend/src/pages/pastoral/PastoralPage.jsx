@@ -85,7 +85,7 @@ export default function PastoralPage() {
   const queryClient = useQueryClient();
   const formRef = useRef(null);
   const { user } = useAuthStore();
-  const canCreate = ['superadmin', 'secretary'].includes(user?.role);
+  const canCreate = ['church_admin', 'secretary'].includes(user?.role);
   const [form, setForm] = useState(() => initialForm(user?.id));
   const [editingId, setEditingId] = useState(null);
   const [showForm, setShowForm] = useState(false);

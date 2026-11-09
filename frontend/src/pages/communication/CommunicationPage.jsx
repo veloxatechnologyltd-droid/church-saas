@@ -86,7 +86,7 @@ export default function CommunicationPage() {
   const announcementsQuery = useQuery({
     queryKey: ['announcements', 'admin'],
     queryFn: () => communicationService.getAnnouncements({ include_inactive: true }).then((response) => response.data.data),
-    enabled: tab === 'announcements' && ['superadmin', 'secretary'].includes(user?.role),
+    enabled: tab === 'announcements' && ['church_admin', 'secretary'].includes(user?.role),
   });
 
   const sendMutation = useMutation({
@@ -202,7 +202,7 @@ export default function CommunicationPage() {
           { id: 'send', label: 'Send SMS', icon: Send },
           { id: 'reminders', label: 'Automatic Reminders', icon: Clock3 },
           { id: 'history', label: 'History', icon: History },
-          ...(['superadmin', 'secretary'].includes(user?.role) ? [{ id: 'announcements', label: 'Announcements', icon: Megaphone }] : []),
+          ...(['church_admin', 'secretary'].includes(user?.role) ? [{ id: 'announcements', label: 'Announcements', icon: Megaphone }] : []),
         ].map(({ id, label, icon: Icon }) => (
           <button key={id} type="button" onClick={() => { setTab(id); setFeedback(null); }} className={`btn-outline ${tab === id ? 'border-brand-700 bg-brand-50 text-brand-700' : ''}`}>
             <Icon size={15} /> {label}

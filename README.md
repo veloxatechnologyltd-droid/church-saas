@@ -1,158 +1,78 @@
-# Living Spring Church Management System
+# Ekklesia — multi-church management SaaS
 
-Living Spring International Church Management System is a full-stack platform for managing church members, attendance, donations, groups, events, communication, and reports.
+Ekklesia is a multi-tenant church management platform built for growing ministries in Ghana and beyond.
+Each church signs up, gets its own branded workspace, and manages its people, services, giving and outreach,
+across one or many branches.
 
-## Tech Stack
+## What churches get
 
-- Frontend: React + Vite + Tailwind + React Query + Zustand
-- Backend: FastAPI + SQLAlchemy + Alembic
-- Database: PostgreSQL (Supabase-ready)
-- Auth: JWT + role-based access
+| Area | Highlights |
+|---|---|
+| Members & families | Profiles, families, photo, status, baptism/membership class, birthdays, CSV/XLSX export |
+| Attendance | Service sessions per branch, quick marking, **QR self check-in** by phone number, absence risk alerts |
+| Giving & finance | Funds, service batches, tithes/offerings, expenses, monthly/annual reports, **member giving statements** |
+| Pledge campaigns | Building projects/harvest drives with targets, pledges, instalment payments that flow into finance |
+| First-timers | **Public welcome card** (QR), visitor pipeline (new → contacted → returning → converted), one-click convert to member |
+| Prayer requests | **Public prayer form**, confidential flag, prayer team workflow |
+| Pastoral care | Follow-up logs, assignment, due dates, attendance-driven care alerts |
+| Groups & events | Departments with leaders, events with registrations and reminders |
+| Communication | Bulk SMS with **prepaid SMS credits** and the church's own sender ID, weekly scheduled reminders, announcements |
+| Multi-branch | Church-wide and branch-scoped roles; branch users only see their branch |
+| Team & roles | Invitations, `church_admin`, `secretary`, `finance`, `group_leader`, `member` |
+| Branding | Church name, logo and colours applied across the app and public pages |
 
-## Project Structure
+Platform side: self-service signup with a 14-day trial, plans with enforced limits (Free / Growth / Kingdom /
+Enterprise, priced in GHS), read-only mode after a lapsed trial or payment, billing behind a provider interface
+(Seevplus pending API docs; a fake provider is used for development), signed idempotent webhooks, and a platform
+admin console (stats, MRR, suspend/reactivate, plan changes, SMS credit grants, audited impersonation).
 
-```text
-church_management_system/
-├── backend/
-├── frontend/
-├── docs/
-├── AGENTS.md
-└── README.md
-```
+## Architecture
 
-## Backend Setup
+- **Backend:** FastAPI, SQLAlchemy 2, Alembic, PostgreSQL — `backend/`
+- **Frontend:** React 18, Vite, Tailwind, React Query, Zustand — `frontend/`
+- **Tenancy:** one database, `church_id` on every tenant table, enforced in three layers: automatic ORM scoping
+  (`backend/app/db/tenancy.py`), composite same-church foreign keys, and Postgres row-level security. An
+  endpoint-wide isolation test suite proves church A cannot read or change church B's data.
+
+Read `docs/SAAS.md` for the full architecture and `docs/API_SAAS.md` for the SaaS endpoints.
+
+## Local development
 
 ```bash
+# 1. Database (isolated Postgres on port 55440)
+docker compose -f docker-compose.dev.yml up -d
+
+# 2. Backend
 cd backend
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-Create env file:
-
-```bash
-cp .env.example .env
-```
-
-Set at minimum:
-
-- `DATABASE_URL`
-- `SECRET_KEY`
-
-Run migrations:
-
-```bash
+python3.11 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+cp .env.example .env              # set SECRET_KEY; SMS_PROVIDER=console for local
 alembic upgrade head
-```
+python scripts/seed_demo.py       # synthetic demo churches (use --reset to rebuild)
+uvicorn app.main:app --reload     # http://localhost:8000/docs
 
-Seed superadmin:
-
-```bash
-python scripts/seed_superadmin.py
-```
-
-Start backend:
-
-```bash
-uvicorn app.main:app --reload
-```
-
-Recurring SMS reminders:
-
-```bash
-cd backend
-python scripts/run_reminders.py
-```
-
-Run the reminder script from a platform cron every 5–15 minutes. The Render
-Blueprint includes a starter cron service for this. It checks
-weekly schedules in Africa/Accra time and records each execution so repeated
-cron calls do not send the same reminder twice. Configure
-`SMS_PROVIDER` (`arkesel` or `moolre`) and the matching provider credentials
-before sending SMS.
-
-API docs:
-
-- `http://localhost:8000/docs`
-- `http://localhost:8000/redoc`
-
-## Frontend Setup
-
-```bash
-cd frontend
-cp .env.example .env.local
+# 3. Frontend
+cd ../frontend
 npm install
-npm run dev
+echo "VITE_API_BASE_URL=http://localhost:8000/api/v1" > .env.local
+npm run dev                       # http://localhost:5173
+
+# 4. Tests (real Postgres)
+cd ../backend && pytest -q
 ```
 
-Frontend dev URL:
+### Demo logins (password `Demo@12345`)
 
-- `http://localhost:5173`
+| Email | Role |
+|---|---|
+| `owner@ekklesia.demo` | Platform admin (console at `/platform`) |
+| `pastor@grace.demo` | Church admin, Grace Covenant (also in Living Waters — church picker) |
+| `secretary@grace.demo` / `finance@grace.demo` / `youth@grace.demo` | Secretary / Finance / Group leader |
+| `tema@grace.demo` | Admin limited to the Tema branch |
+| `admin@livingwaters.demo` | Church admin, Living Waters (on trial) |
 
-Ensure `VITE_API_BASE_URL` points to backend API, for example:
+All demo people, phone numbers and emails are invented.
 
-```env
-VITE_API_BASE_URL=http://localhost:8000/api/v1
-```
+## Deployment
 
-## Deploy: Render (backend) + Vercel (frontend)
-
-### 1. Render — FastAPI
-
-1. Push this repository to GitHub (or GitLab / Bitbucket supported by Render).
-2. In [Render](https://dashboard.render.com): **New** → **Blueprint** → select the repo → Render reads `render.yaml` at the repository root.
-3. In the web service **Environment** tab, set (or confirm) these variables:
-   - `DATABASE_URL` — PostgreSQL connection string (Render Postgres or Supabase). For Supabase, copy the current string from **Supabase Dashboard -> Connect -> ORMs**.
-     Direct example: `postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres?sslmode=require`.
-     Shared pooler session mode, if direct IPv6 connectivity is not available: `postgresql://postgres.<project-ref>:<password>@aws-<region>.pooler.supabase.com:5432/postgres`.
-     If Render logs show `tenant/user postgres.<project-ref> not found`, Render is using a pooler URL whose project ref/user cannot be found. Switch `DATABASE_URL` to the current direct connection string or re-copy the pooler string from the active Supabase project, then redeploy.
-   - `SECRET_KEY` — long random string (e.g. `openssl rand -hex 32`).
-   - `SMS_PROVIDER` — `arkesel` or `moolre`.
-   - `ARKESEL_API_KEY` / `ARKESEL_SENDER_ID` or `MOOLRE_VAS_KEY` / `MOOLRE_SENDER_ID` — required for the selected live SMS provider.
-   - `CORS_ORIGINS` — comma-separated list of **exact** frontend origins (no trailing slash), for example:
-     - `https://your-app.vercel.app`
-     - Include preview URLs if you use Vercel previews: `https://your-app-git-feature-xyz.vercel.app`
-     - Local dev: `http://localhost:5173`
-4. After the first successful deploy, create a superadmin if needed (Render **Shell** from the service, or run locally against production DB):
-
-   ```bash
-   cd backend && alembic upgrade head && python scripts/seed_superadmin.py
-   ```
-
-5. **Health check:** Render uses `GET /health` (see `render.yaml`). To verify database connectivity after changing credentials, open `https://<your-service>.onrender.com/health/db`; it returns `503` if the API is up but the database connection is failing.
-
-**Manual web service (without Blueprint):** Create a **Web Service**, connect the repo, set **Root Directory** to `backend`, **Build Command** `pip install -r requirements.txt`, **Start Command** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`, add the same environment variables, and optionally set **Pre-Deploy Command** to `alembic upgrade head`.
-
-### 2. Vercel — Vite / React
-
-1. In [Vercel](https://vercel.com): **Add New** → **Project** → import the same Git repository.
-2. **Root Directory:** set to `frontend` (important for a monorepo).
-3. **Framework Preset:** Vite (auto-detected).
-4. **Environment variables** (Production and Preview):
-   - `VITE_API_BASE_URL` = `https://<your-render-service>.onrender.com/api/v1` (use your real Render URL; must end with `/api/v1`).
-5. Redeploy after changing env vars (Vite bakes `VITE_*` at build time).
-
-`frontend/vercel.json` adds SPA rewrites so React Router paths work on refresh.
-
-### 3. Order of operations
-
-1. Deploy the API on Render and confirm `https://<your-service>.onrender.com/health` returns `{"status":"ok"}`.
-2. Set `CORS_ORIGINS` on Render to include your final Vercel URL(s).
-3. Deploy the frontend on Vercel with `VITE_API_BASE_URL` pointing at Render.
-
-## Current Implemented Modules
-
-- Auth (login, register, me, change-password)
-- Members (list/search/create/update/soft-delete/family/export/photo placeholder)
-- Attendance (sessions, bulk mark, member history, summary)
-- Departments & ministries (flat departments, leaders, many-to-many membership)
-- Communication (church-wide or department SMS, Arkesel/Moolre delivery, history, weekly automatic reminders)
-- In-app announcements (notification bell, publishing, expiry, and archiving)
-- Events and calendar (event registration and registered-member reminders)
-- Pastoral follow-up and super-admin audit logs
-
-## Notes
-
-- Instruction docs are under `docs/`.
-- Keep secrets out of version control (`.env`, `.env.local` are ignored).
+See `docs/DEPLOYMENT.md`.

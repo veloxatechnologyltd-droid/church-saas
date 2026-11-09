@@ -1,10 +1,20 @@
-# DESIGN.md — Living Spring International Church CMS
+# DESIGN.md — Church CMS design system (default theme)
 ## UI/UX Design System & Redesign Specification
 
 **Designer Spec Author:** AI Design Lead (Google-level spec)
 **Project:** Living Spring International Church Management System
 **Date:** April 2026
 **Version:** 1.0
+
+> **SaaS update (Phase 6).** This spec was written for Living Spring. In the multi-tenant
+> product the palette below is the **default** theme only. `brand-*` (primary) and `church-*`
+> (secondary/amber role) are generated per church from its own colours at runtime
+> (`frontend/src/utils/theme.js`, see docs/FRONTEND.md -> Theming); `accent-*` (danger) and
+> `success-*` stay fixed. The church logo comes from the API (`ChurchMark` falls back to
+> initials); no church logo ships with the app. The product's own identity ("Ekklesia") is
+> used on public/marketing pages and the platform console (`ProductMark`).
+> New shared components: `Drawer`, `Field`, `Alert`, `Tabs`, `ProgressBar`, `QrLink`,
+> `ChurchMark`, `ProductMark`, `PlanCard`, `MemberPicker`.
 
 ---
 

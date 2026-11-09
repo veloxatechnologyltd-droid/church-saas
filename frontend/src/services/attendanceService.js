@@ -7,4 +7,5 @@ export const attendanceService = {
   markAttendance: (sessionId, payload) => api.post(`/attendance/sessions/${sessionId}/mark`, payload),
   getMemberHistory: (memberId) => api.get(`/attendance/member/${memberId}`),
   getSummary: () => api.get('/attendance/summary'),
+  setCheckin: (sessionId, open) => api.post(`/attendance/sessions/${sessionId}/checkin`, { open }),
 };

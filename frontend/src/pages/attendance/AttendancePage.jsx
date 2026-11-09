@@ -15,6 +15,7 @@ import {
 import { useMembers } from '../../hooks/useMembers';
 import { CHURCH_SERVICE_TYPES } from '../../utils/constants';
 import { formatDate } from '../../utils/formatters';
+import SelfCheckinPanel from './SelfCheckinPanel';
 
 function sessionTypeLabel(value) {
   return CHURCH_SERVICE_TYPES.find((type) => type.value === value)?.label ?? value?.replaceAll('_', ' ') ?? 'Custom';
@@ -191,6 +192,8 @@ export default function AttendancePage() {
           </button>
         </div>
       </div>
+
+      {selectedSessionId && selectedSessionQuery.data?.data ? <SelfCheckinPanel session={selectedSessionQuery.data.data} /> : null}
 
       {/* Check-in board */}
       <div className="panel p-5">

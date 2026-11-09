@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     BILLING_PROVIDER: str = "fake"
     BILLING_WEBHOOK_SECRET: str = ""
     RATE_LIMIT_ENABLED: bool = True
+    # Shared secret for scheduled jobs (Vercel Cron sends "Authorization: Bearer <CRON_SECRET>").
+    CRON_SECRET: str = ""
+    # How late a reminder may still be sent (lets an hourly/daily cron catch up).
+    REMINDER_CATCHUP_MINUTES: int = 180
     LOG_JSON: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

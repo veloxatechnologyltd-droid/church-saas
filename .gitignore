@@ -11,3 +11,4 @@ frontend/.env.local
 .DS_Store
 
 frontend/dist/
+.playwright-mcp/

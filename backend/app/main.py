@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import attendance, audit, auth, communication, donations, events, families, groups, invitations, members, pastoral, reports
 from app.api.v1 import pledges, prayer_requests, public, visitors
-from app.api.v1 import billing, branches, church, platform, signup, team
+from app.api.v1 import billing, branches, church, internal, platform, signup, team
 from app.core.middleware import RateLimitMiddleware, RequestLogMiddleware, SecurityHeadersMiddleware
 from app.db.tenancy import TenantViolation
 from app.core.config import settings
@@ -28,7 +28,13 @@ app = FastAPI(
     openapi_url=None if settings.ENVIRONMENT == "production" else "/openapi.json",
 )
 
-os.makedirs("uploads", exist_ok=True)
+# Local uploads (dev only; production uses Cloudinary). Serverless hosts have a
+# read-only filesystem, so failing to create the folder must not stop the app.
+try:
+    os.makedirs("uploads", exist_ok=True)
+    _uploads_available = True
+except OSError:
+    _uploads_available = False
 
 if settings.ENVIRONMENT == "production" and settings.SECRET_KEY in ("change-this-secret", "change-this-to-a-long-random-secret"):
     raise RuntimeError("SECRET_KEY must be set to a long random value in production")
@@ -47,7 +53,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+if _uploads_available:
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(invitations.router, prefix="/api/v1/invitations", tags=["Invitations"])
@@ -72,6 +79,7 @@ app.include_router(team.router, prefix="/api/v1/team", tags=["Team"])
 app.include_router(billing.router, prefix="/api/v1/billing", tags=["Billing"])
 app.include_router(billing.sms_router, prefix="/api/v1/sms-credits", tags=["SMS credits"])
 app.include_router(platform.router, prefix="/api/v1/platform", tags=["Platform admin"])
+app.include_router(internal.router, prefix="/api/v1/internal", tags=["Internal"], include_in_schema=False)
 
 
 @app.exception_handler(TenantViolation)

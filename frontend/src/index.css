@@ -5,16 +5,16 @@
 @tailwind utilities;
 
 :root {
-  --cms-ink:          #0F172A;
-  --cms-muted:        #475569;
-  --cms-border:       #E2E8F0;
-  --cms-surface:      #FFFFFF;
-  --cms-surface-soft: #F8FAFC;
-  --cms-brand:        #1A4FA0;   /* cobalt blue — logo primary swirl */
-  --cms-brand-soft:   #EEF4FC;
-  --cms-accent:       #C02416;   /* crimson red — logo secondary swirl + wordmark */
-  --cms-amber:        #E07218;   /* amber orange — logo tertiary swirl */
-  --cms-success:      #15803D;
+  /* Default (product) palette; utils/theme.js overrides these with the church's colours. */
+  --brand-50: 232 237 246; --brand-100: 212 222 238; --brand-200: 172 191 221; --brand-300: 129 158 203;
+  --brand-400: 90 128 187; --brand-500: 58 104 173; --brand-600: 40 90 166; --brand-700: 26 79 160;
+  --brand-800: 21 65 131; --brand-900: 16 49 99;
+  --church-50: 252 241 228; --church-100: 250 228 203; --church-200: 245 202 154; --church-300: 239 174 102;
+  --church-400: 234 150 59; --church-500: 228 128 36; --church-600: 226 121 30; --church-700: 224 114 24;
+  --church-800: 184 93 20; --church-900: 139 71 15;
+  --cms-ink: #0F172A;
+  --cms-muted: #475569;
+  --cms-border: #E2E8F0;
 }
 
 body {

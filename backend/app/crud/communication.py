@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db.tenancy import bind_tenant, clear_tenant, current_church_id
 from app.models.church import Church
 from app.models.communication import Communication, ReminderRun, ReminderSchedule
@@ -195,7 +196,10 @@ def _run_due_reminders_for_church(db: Session, now: datetime) -> list[dict]:
     results = []
     for schedule in list_schedules(db):
         scheduled_for = _scheduled_datetime(schedule, now)
-        if scheduled_for is None or not (now - timedelta(minutes=15) <= scheduled_for <= now):
+        # Catch-up window: a late or infrequent cron still sends today's reminder once
+        # (reminder_runs is unique per schedule + scheduled time).
+        window = timedelta(minutes=settings.REMINDER_CATCHUP_MINUTES)
+        if scheduled_for is None or not (now - window <= scheduled_for <= now):
             continue
         try:
             run = ReminderRun(schedule_id=schedule.id, scheduled_for=scheduled_for, status="running")
