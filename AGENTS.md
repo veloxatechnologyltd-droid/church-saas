@@ -2,6 +2,8 @@
 
 You are an AI coding agent working on the **Living Spring International Church Management System** — a full-stack web application built by **John Evans Okyere**, based in Accra, Ghana.
 
+> **SaaS conversion in progress:** this repo is the multi-tenant fork. Read `SAAS_CHECKLIST.md` and work through it in order.
+
 Before writing any code, read ALL instruction files in the `docs/` folder in this order:
 
 1. `docs/OVERVIEW.md` — Project structure, stack, and conventions
