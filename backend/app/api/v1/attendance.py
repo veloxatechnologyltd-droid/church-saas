@@ -29,7 +29,7 @@ def list_sessions(
 def create_session(
     payload: AttendanceSessionCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     session = attendance_crud.create_session(db, payload, created_by=current_user.id)
     record_audit(db, user_id=current_user.id, action="created", table_name="attendance_sessions", record_id=session.id, new_value={"title": session.title, "session_date": session.session_date.isoformat()})
@@ -59,7 +59,7 @@ def mark_attendance(
     session_id: UUID,
     payload: AttendanceMarkRequest,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     session = attendance_crud.get_session(db, session_id)
     if not session:

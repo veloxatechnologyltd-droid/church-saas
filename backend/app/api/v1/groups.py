@@ -20,7 +20,7 @@ def groups_health() -> dict:
 
 
 def _can_manage_group(current_user, group) -> bool:
-    return current_user.role in {"superadmin", "secretary"} or (
+    return current_user.role in {"church_admin", "secretary"} or (
         current_user.role == "group_leader" and current_user.member_id == group.leader_id
     )
 
@@ -48,7 +48,7 @@ def list_groups(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    groups = group_crud.list_groups(db, include_inactive=include_inactive and current_user.role == "superadmin")
+    groups = group_crud.list_groups(db, include_inactive=include_inactive and current_user.role == "church_admin")
     return {"status": "success", "data": [_serialize_group(db, group) for group in groups], "total": len(groups)}
 
 
@@ -56,7 +56,7 @@ def list_groups(
 def create_group(
     payload: GroupCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     try:
         group = group_crud.create_group(db, payload)
@@ -81,7 +81,7 @@ def update_group(
     group_id: UUID,
     payload: GroupUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     existing = group_crud.get_group(db, group_id)
     if not existing:
@@ -101,7 +101,7 @@ def update_group(
 def delete_group(
     group_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin")),
+    current_user=Depends(require_roles("church_admin")),
 ):
     if not group_crud.deactivate_group(db, group_id):
         raise HTTPException(status_code=404, detail="Department not found")

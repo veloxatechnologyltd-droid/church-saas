@@ -57,7 +57,7 @@ def list_members(
 def create_member(
     payload: MemberCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     try:
         member = member_crud.create_member(db, payload)
@@ -88,7 +88,7 @@ def get_family_members(
 @router.get("/export")
 def export_members(
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     members, _ = member_crud.get_members(db, skip=0, limit=100000)
     csv_data = member_crud.generate_members_csv(members)
@@ -142,7 +142,7 @@ def update_member(
     member_id: UUID,
     payload: MemberUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     if payload.family_id and not member_crud.get_family(db, payload.family_id):
         raise HTTPException(status_code=400, detail="Selected family was not found")
@@ -161,7 +161,7 @@ def update_member(
 def delete_member(
     member_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin")),
+    current_user=Depends(require_roles("church_admin")),
 ):
     deleted = member_crud.soft_delete_member(db, member_id)
     if not deleted:
@@ -176,7 +176,7 @@ def upload_member_photo(
     member_id: UUID,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     member = member_crud.get_member(db, member_id)
     if not member:

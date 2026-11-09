@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     MOOLRE_SENDER_ID: str = "LivingSpring"
     MOOLRE_BASE_URL: str = "https://api.moolre.com"
 
+    # Where links in emails (invites, password reset) point. The frontend owns these pages.
+    FRONTEND_BASE_URL: str = "http://localhost:5173"
+    INVITE_EXPIRE_HOURS: int = 168  # 7 days
+    PASSWORD_RESET_EXPIRE_MINUTES: int = 60
+    # "console" prints emails to the server log (development). No real provider yet.
+    EMAIL_BACKEND: str = "console"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @field_validator("DATABASE_URL")

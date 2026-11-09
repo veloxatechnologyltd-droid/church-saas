@@ -7,6 +7,7 @@ from sqlalchemy.orm import joinedload
 
 from app.models.attendance import AttendanceRecord, AttendanceSession
 from app.models.member import Member
+from app.models.membership import Membership
 from app.models.pastoral import PastoralLog
 from app.models.user import User
 from app.schemas.pastoral import PastoralLogCreate, PastoralLogUpdate
@@ -89,12 +90,20 @@ def update_log(db: Session, log_id: UUID, payload: PastoralLogUpdate) -> Pastora
     return row
 
 
-def list_assignees(db: Session) -> list[User]:
+ASSIGNEE_ROLES = ["church_admin", "secretary", "group_leader"]
+
+
+def list_assignees(db: Session, church_id: UUID):
+    """Active staff of THIS church who can own a care plan. Rows expose ``id``, ``email``, ``role``
+    (the role is the user's membership role in the church)."""
     return (
-        db.query(User)
+        db.query(User.id, User.email, Membership.role)
+        .join(Membership, Membership.user_id == User.id)
         .filter(
+            Membership.church_id == church_id,
+            Membership.is_active.is_(True),
+            Membership.role.in_(ASSIGNEE_ROLES),
             User.is_active.is_(True),
-            User.role.in_(["superadmin", "secretary", "group_leader"]),
         )
         .order_by(User.email.asc())
         .all()

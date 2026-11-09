@@ -16,7 +16,7 @@ def list_audit_logs(
     action: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin")),
+    current_user=Depends(require_roles("church_admin")),
 ):
     query = db.query(AuditLog)
     if table_name:

@@ -53,7 +53,7 @@ def list_events(
 def create_event(
     payload: EventCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     event = event_crud.create_event(db, payload, current_user.id)
     record_audit(db, user_id=current_user.id, action="created", table_name="events", record_id=event.id, new_value={"title": event.title})
@@ -74,7 +74,7 @@ def update_event(
     event_id: UUID,
     payload: EventUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     event = event_crud.get_event(db, event_id)
     if not event:
@@ -90,7 +90,7 @@ def update_event(
 def delete_event(
     event_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin")),
+    current_user=Depends(require_roles("church_admin")),
 ):
     if not event_crud.delete_event(db, event_id):
         raise HTTPException(status_code=404, detail="Event not found")
@@ -128,7 +128,7 @@ def register_for_event(
 def event_registrations(
     event_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     if not event_crud.get_event(db, event_id):
         raise HTTPException(status_code=404, detail="Event not found")
@@ -152,7 +152,7 @@ def remind_event_registrants(
     event_id: UUID,
     payload: EventReminderRequest,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     event = event_crud.get_event(db, event_id)
     if not event:

@@ -50,7 +50,7 @@ def list_donations(
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     rows, total = donation_crud.list_donations(
         db,
@@ -69,7 +69,7 @@ def list_donations(
 def create_donation(
     payload: DonationCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     try:
         row = donation_crud.create_donation(db, payload, recorded_by=current_user.id)
@@ -89,7 +89,7 @@ def list_funds(db: Session = Depends(get_db), current_user=Depends(get_current_u
 @router.post("/funds/bootstrap", status_code=status.HTTP_201_CREATED)
 def bootstrap_funds(
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin")),
+    current_user=Depends(require_roles("church_admin")),
 ):
     rows = donation_crud.bootstrap_standard_funds(db)
     return {"status": "success", "data": [DonationFundResponse.model_validate(row).model_dump() for row in rows]}
@@ -99,7 +99,7 @@ def bootstrap_funds(
 def create_fund(
     payload: DonationFundCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin")),
+    current_user=Depends(require_roles("church_admin")),
 ):
     row = donation_crud.create_fund(db, payload)
     record_audit(db, user_id=current_user.id, action="created", table_name="donation_funds", record_id=row.id, new_value={"name": row.name})
@@ -111,7 +111,7 @@ def create_fund(
 def list_batches(
     include_closed: bool = Query(default=True),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     rows = donation_crud.list_batches(db, include_closed=include_closed)
     return {"status": "success", "data": [FinanceBatchResponse.model_validate(row).model_dump() for row in rows]}
@@ -121,7 +121,7 @@ def list_batches(
 def create_batch(
     payload: FinanceBatchCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     row = donation_crud.create_batch(db, payload, recorded_by=current_user.id)
     record_audit(db, user_id=current_user.id, action="created", table_name="finance_batches", record_id=row.id, new_value={"title": row.title, "service_date": row.service_date.isoformat()})
@@ -136,7 +136,7 @@ def create_batch(
 def close_batch(
     batch_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     try:
         row = donation_crud.close_batch(db, batch_id)
@@ -160,7 +160,7 @@ def get_member_history(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    if current_user.role not in {"superadmin", "finance"} and str(current_user.member_id) != str(member_id):
+    if current_user.role not in {"church_admin", "finance"} and str(current_user.member_id) != str(member_id):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     rows = donation_crud.member_history(db, member_id)
     return {"status": "success", "data": [serialize_donation(row) for row in rows]}
@@ -174,7 +174,7 @@ def monthly_report(
     fund_id: UUID | None = Query(default=None),
     batch_id: UUID | None = Query(default=None),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     return {"status": "success", "data": donation_crud.monthly_report(db, year=year, start_date=start_date, end_date=end_date, fund_id=fund_id, batch_id=batch_id)}
 
@@ -186,7 +186,7 @@ def monthly_expense_report(
     end_date: date | None = Query(default=None),
     category_id: UUID | None = Query(default=None),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     return {"status": "success", "data": donation_crud.monthly_expense_report(db, year=year, start_date=start_date, end_date=end_date, category_id=category_id)}
 
@@ -199,7 +199,7 @@ def list_expenses(
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     rows, total = donation_crud.list_expenses(
         db,
@@ -221,7 +221,7 @@ def get_finance_summary(
     fund_id: UUID | None = Query(default=None),
     category_id: UUID | None = Query(default=None),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     data = donation_crud.finance_summary(
         db,
@@ -242,7 +242,7 @@ def export_finance_summary(
     fund_id: UUID | None = Query(default=None),
     category_id: UUID | None = Query(default=None),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     summary = donation_crud.finance_summary(
         db,
@@ -272,7 +272,7 @@ def export_finance_summary(
 def create_expense(
     payload: ExpenseCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     row = donation_crud.create_expense(db, payload, recorded_by=current_user.id)
     record_audit(db, user_id=current_user.id, action="created", table_name="expenses", record_id=row.id, new_value={"amount": str(row.amount), "category_id": str(row.category_id)})
@@ -289,7 +289,7 @@ def list_expense_categories(db: Session = Depends(get_db), current_user=Depends(
 @router.post("/expense-categories/bootstrap", status_code=status.HTTP_201_CREATED)
 def bootstrap_expense_categories(
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin")),
+    current_user=Depends(require_roles("church_admin")),
 ):
     rows = donation_crud.bootstrap_expense_categories(db)
     return {"status": "success", "data": [ExpenseCategoryResponse.model_validate(row).model_dump() for row in rows]}
@@ -299,7 +299,7 @@ def bootstrap_expense_categories(
 def create_expense_category(
     payload: ExpenseCategoryCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin")),
+    current_user=Depends(require_roles("church_admin")),
 ):
     row = donation_crud.create_expense_category(db, payload)
     record_audit(db, user_id=current_user.id, action="created", table_name="expense_categories", record_id=row.id, new_value={"name": row.name})
@@ -315,7 +315,7 @@ def annual_report(
     fund_id: UUID | None = Query(default=None),
     batch_id: UUID | None = Query(default=None),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     return {"status": "success", "data": donation_crud.annual_report(db, year=year, start_date=start_date, end_date=end_date, fund_id=fund_id, batch_id=batch_id)}
 
@@ -324,7 +324,7 @@ def annual_report(
 def member_statement(
     member_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     rows = donation_crud.member_history(db, member_id)
     total = sum(float(row.amount) for row in rows)
@@ -343,7 +343,7 @@ def member_statement(
 def get_donation(
     donation_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     row = donation_crud.get_donation(db, donation_id)
     if not row:

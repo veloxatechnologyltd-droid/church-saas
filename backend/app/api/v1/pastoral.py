@@ -7,12 +7,13 @@ from app.core.dependencies import get_current_user, require_roles
 from app.crud import pastoral as pastoral_crud
 from app.db.database import get_db
 from app.models.member import Member
+from app.models.membership import Membership
 from app.models.user import User
 from app.schemas.pastoral import PastoralLogCreate, PastoralLogResponse, PastoralLogUpdate
 from app.services.audit import record_audit
 
 router = APIRouter()
-PASTORAL_ROLES = ("superadmin", "secretary", "group_leader")
+PASTORAL_ROLES = ("church_admin", "secretary", "group_leader")
 
 
 def _serialize(row) -> dict:
@@ -39,15 +40,19 @@ def _serialize(row) -> dict:
     ).model_dump()
 
 
-def _validate_assignee(db: Session, assignee_id: UUID | None) -> None:
+def _validate_assignee(db: Session, church_id: UUID, assignee_id: UUID | None) -> None:
+    """The care owner must be an active staff member of the SAME church."""
     if not assignee_id:
         return
     assignee = (
         db.query(User)
+        .join(Membership, Membership.user_id == User.id)
         .filter(
             User.id == assignee_id,
             User.is_active.is_(True),
-            User.role.in_(PASTORAL_ROLES),
+            Membership.church_id == church_id,
+            Membership.is_active.is_(True),
+            Membership.role.in_(PASTORAL_ROLES),
         )
         .first()
     )
@@ -88,7 +93,7 @@ def pastoral_summary(
 def attendance_risks(
     limit: int = Query(default=25, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     rows = pastoral_crud.list_attendance_risks(db, limit=limit)
     return {"status": "success", "data": rows, "total": len(rows)}
@@ -97,9 +102,9 @@ def attendance_risks(
 @router.get("/assignees")
 def pastoral_assignees(
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
-    rows = pastoral_crud.list_assignees(db)
+    rows = pastoral_crud.list_assignees(db, current_user.church_id)
     return {
         "status": "success",
         "data": [
@@ -114,11 +119,11 @@ def pastoral_assignees(
 def create_pastoral_log(
     payload: PastoralLogCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     if not db.query(Member).filter(Member.id == payload.member_id).first():
         raise HTTPException(status_code=404, detail="Member not found")
-    _validate_assignee(db, payload.assigned_to)
+    _validate_assignee(db, current_user.church_id, payload.assigned_to)
     row = pastoral_crud.create_log(db, payload, current_user.id)
     record_audit(
         db,
@@ -154,7 +159,7 @@ def update_pastoral_log(
         if "assigned_to" in payload.model_fields_set and payload.assigned_to != current_user.id:
             raise HTTPException(status_code=403, detail="You cannot reassign this follow-up")
     else:
-        _validate_assignee(db, payload.assigned_to)
+        _validate_assignee(db, current_user.church_id, payload.assigned_to)
     row = pastoral_crud.update_log(db, log_id, payload)
     record_audit(db, user_id=current_user.id, action="updated", table_name="pastoral_logs", record_id=log_id, new_value=payload.model_dump(exclude_unset=True))
     db.commit()

@@ -50,7 +50,7 @@ def members_growth(db: Session = Depends(get_db), current_user=Depends(get_curre
 @router.get("/export/members")
 def export_members_report(
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     members, _ = member_crud.get_members(db, skip=0, limit=100000)
     csv_data = member_crud.generate_members_csv(members)
@@ -64,7 +64,7 @@ def export_members_report(
 @router.get("/export/donations")
 def export_donations_report(
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "finance")),
+    current_user=Depends(require_roles("church_admin", "finance")),
 ):
     rows = donation_crud.list_donations(db, skip=0, limit=100000)[0]
     output = io.StringIO()

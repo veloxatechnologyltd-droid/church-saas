@@ -77,14 +77,14 @@ def _can_manage_group(current_user, group: Group | None) -> bool:
     return bool(
         group
         and (
-            current_user.role in {"superadmin", "secretary"}
+            current_user.role in {"church_admin", "secretary"}
             or (current_user.role == "group_leader" and current_user.member_id == group.leader_id)
         )
     )
 
 
 def _validate_audience_scope(payload, current_user, db: Session) -> None:
-    if current_user.role not in {"superadmin", "secretary", "group_leader"}:
+    if current_user.role not in {"church_admin", "secretary", "group_leader"}:
         raise HTTPException(status_code=403, detail="You do not have permission to send SMS")
     if current_user.role != "group_leader":
         return
@@ -115,7 +115,7 @@ def send_bulk_sms(
 def communication_history(
     limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     communications = communication_crud.list_communications(db, limit=limit)
     return {"status": "success", "data": [_serialize_communication(item) for item in communications], "total": len(communications)}
@@ -129,7 +129,7 @@ def list_reminders(
 ):
     schedules = communication_crud.list_schedules(
         db,
-        include_inactive=include_inactive and current_user.role in {"superadmin", "secretary"},
+        include_inactive=include_inactive and current_user.role in {"church_admin", "secretary"},
     )
     if current_user.role == "group_leader":
         schedules = [schedule for schedule in schedules if schedule.group and schedule.group.leader_id == current_user.member_id]
@@ -142,7 +142,7 @@ def create_reminder(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    if current_user.role not in {"superadmin", "secretary", "group_leader"}:
+    if current_user.role not in {"church_admin", "secretary", "group_leader"}:
         raise HTTPException(status_code=403, detail="You do not have permission to create reminders")
     if payload.audience_type == "department":
         group = db.query(Group).filter(Group.id == payload.group_id, Group.is_active.is_(True)).first()
@@ -165,7 +165,7 @@ def update_reminder(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    if current_user.role not in {"superadmin", "secretary", "group_leader"}:
+    if current_user.role not in {"church_admin", "secretary", "group_leader"}:
         raise HTTPException(status_code=403, detail="You do not have permission to update reminders")
     schedule = communication_crud.get_schedule(db, schedule_id)
     if not schedule:
@@ -200,7 +200,7 @@ def delete_reminder(
         raise HTTPException(status_code=404, detail="Reminder not found")
     if current_user.role == "group_leader" and (not schedule.group or not _can_manage_group(current_user, schedule.group)):
         raise HTTPException(status_code=403, detail="You cannot manage this reminder")
-    if current_user.role not in {"superadmin", "secretary", "group_leader"}:
+    if current_user.role not in {"church_admin", "secretary", "group_leader"}:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     communication_crud.deactivate_schedule(db, schedule_id)
     record_audit(db, user_id=current_user.id, action="deactivated", table_name="reminder_schedules", record_id=schedule_id)
@@ -210,7 +210,7 @@ def delete_reminder(
 @router.post("/reminders/run-due")
 def run_due_reminders(
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     results = communication_crud.run_due_reminders(db)
     return {"status": "success", "data": results, "total": len(results)}
@@ -220,7 +220,7 @@ def run_due_reminders(
 def create_announcement(
     payload: AnnouncementCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     announcement = announcement_crud.create_announcement(db, payload, current_user.id)
     record_audit(
@@ -241,7 +241,7 @@ def list_announcements(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    if include_inactive and current_user.role not in {"superadmin", "secretary"}:
+    if include_inactive and current_user.role not in {"church_admin", "secretary"}:
         raise HTTPException(status_code=403, detail="Only administrators can view inactive announcements")
     announcements = announcement_crud.list_announcements(db, include_inactive=include_inactive)
     return {"status": "success", "data": [_serialize_announcement(item) for item in announcements], "total": len(announcements)}
@@ -252,7 +252,7 @@ def update_announcement(
     announcement_id: UUID,
     payload: AnnouncementUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     announcement = announcement_crud.update_announcement(db, announcement_id, payload)
     if not announcement:
@@ -266,7 +266,7 @@ def update_announcement(
 def delete_announcement(
     announcement_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     if not announcement_crud.deactivate_announcement(db, announcement_id):
         raise HTTPException(status_code=404, detail="Announcement not found")

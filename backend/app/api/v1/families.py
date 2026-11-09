@@ -31,7 +31,7 @@ def list_families(
 def create_family(
     payload: FamilyCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("superadmin", "secretary")),
+    current_user=Depends(require_roles("church_admin", "secretary")),
 ):
     try:
         family = family_crud.create_family(db, payload)
