@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
@@ -36,6 +36,18 @@ class Church(Base):
     trial_ends_at = Column(DateTime(timezone=True), nullable=True)
     sms_sender_id = Column(String, nullable=True)
     email_from = Column(String, nullable=True)
+    email_from_name = Column(String, nullable=True)
+    # Public contact details (shown on public forms and statements).
+    phone = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    address = Column(Text, nullable=True)
+    website = Column(String, nullable=True)
+    country = Column(String, nullable=False, default="GH", server_default="GH")
+    denomination = Column(String, nullable=True)
+    # Prepaid SMS balance; every change is mirrored in sms_credit_ledger.
+    sms_credits = Column(Integer, nullable=False, default=0, server_default="0")
+    suspended_reason = Column(Text, nullable=True)
+    onboarding_completed_at = Column(DateTime(timezone=True), nullable=True)
     settings = Column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

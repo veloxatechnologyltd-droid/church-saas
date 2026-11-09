@@ -18,15 +18,19 @@ TENANT_TABLES = [
     "expenses", "groups", "group_members", "events", "event_registrations",
     "communications", "reminder_schedules", "reminder_runs", "announcements",
     "pastoral_logs", "audit_logs",
+    "subscriptions", "invoices", "payments", "sms_credit_ledger",
+    "visitors", "prayer_requests", "pledge_campaigns", "pledges", "pledge_payments",
 ]
 # Tables that legitimately have no church_id. Anything new must be added here on purpose.
-GLOBAL_TABLES = {"users", "churches", "password_reset_tokens"}
+# Platform data, deliberately not tenant-owned. billing_events/platform_events carry a
+# nullable church_id for reference only.
+GLOBAL_TABLES = {"users", "churches", "password_reset_tokens", "plans", "billing_events", "platform_events"}
 # Tables that carry a nullable branch column, and its name.
 BRANCH_COLUMNS = {
     "members": "home_branch_id", "attendance_sessions": "branch_id", "finance_batches": "branch_id",
     "donations": "branch_id", "expenses": "branch_id", "groups": "branch_id", "events": "branch_id",
     "announcements": "branch_id", "pastoral_logs": "branch_id", "memberships": "branch_id",
-    "invitations": "branch_id",
+    "invitations": "branch_id", "visitors": "branch_id",
 }
 
 

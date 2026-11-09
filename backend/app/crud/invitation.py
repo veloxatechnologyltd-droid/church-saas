@@ -47,7 +47,12 @@ def _find_user(db: Session, email: str) -> User | None:
 
 
 def _membership(db: Session, user_id: UUID, church_id: UUID) -> Membership | None:
-    return db.query(Membership).filter(Membership.user_id == user_id, Membership.church_id == church_id).first()
+    return (
+        db.query(Membership)
+        .execution_options(skip_tenant_scope=True)  # accepting an invite may target another church
+        .filter(Membership.user_id == user_id, Membership.church_id == church_id)
+        .first()
+    )
 
 
 def create_invitation(

@@ -147,7 +147,15 @@ def client(session, outbox):
     from app.main import app
     from app.services.email import get_email_sender
 
-    app.dependency_overrides[get_db] = lambda: session
+    from app.db.tenancy import clear_tenant
+
+    def _request_session():
+        # Production gets a fresh Session per request; the tests share one, so drop the
+        # previous request's tenant binding to behave the same way.
+        clear_tenant(session)
+        yield session
+
+    app.dependency_overrides[get_db] = _request_session
     app.dependency_overrides[get_email_sender] = lambda: outbox
     try:
         yield TestClient(app)

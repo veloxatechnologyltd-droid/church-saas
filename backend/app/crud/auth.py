@@ -52,6 +52,7 @@ def list_church_access(db: Session, user_id: UUID) -> list[tuple[Membership, Chu
     """Active memberships in churches that are not closed, ordered by church name."""
     return (
         db.query(Membership, Church)
+        .execution_options(skip_tenant_scope=True)  # spans the user's churches
         .join(Church, Church.id == Membership.church_id)
         .filter(Membership.user_id == user_id, Membership.is_active.is_(True), Church.status != "closed")
         .order_by(Church.name.asc())
@@ -62,6 +63,7 @@ def list_church_access(db: Session, user_id: UUID) -> list[tuple[Membership, Chu
 def get_church_access(db: Session, user_id: UUID, church_id: UUID) -> tuple[Membership, Church] | None:
     return (
         db.query(Membership, Church)
+        .execution_options(skip_tenant_scope=True)  # spans the user's churches
         .join(Church, Church.id == Membership.church_id)
         .filter(
             Membership.user_id == user_id,

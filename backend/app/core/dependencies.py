@@ -22,7 +22,8 @@ from sqlalchemy.orm import Session
 
 from app.core.security import decode_token
 from app.db.database import get_db
-from app.models.church import Church
+from app.db.tenancy import bind_tenant, clear_tenant
+from app.models.church import Branch, Church
 from app.models.membership import Membership
 from app.models.user import User
 
@@ -111,6 +112,7 @@ def get_session_context(claims: dict = Depends(get_token_claims), db: Session = 
 
     raw_church_id = claims.get("church_id")
     if raw_church_id is None:
+        clear_tenant(db)
         return CurrentUser(user=user)
 
     church_id = _parse_uuid(raw_church_id)
@@ -130,6 +132,16 @@ def get_session_context(claims: dict = Depends(get_token_claims), db: Session = 
     church = db.query(Church).filter(Church.id == church_id).first()
     if church is None:  # cannot happen (FK), but never trust a token's word
         raise _unauthorized()
+    if church.status == "closed":
+        raise _unauthorized("This church account has been closed")
+    main_branch_id = (
+        db.query(Branch.id)
+        .filter(Branch.church_id == church.id, Branch.is_main.is_(True))
+        .scalar()
+    )
+    # From here on every ORM query on this session is limited to this church (and
+    # branch, for branch-scoped memberships). See app/db/tenancy.py.
+    bind_tenant(db, church.id, branch_id=membership.branch_id, default_branch_id=main_branch_id)
     return CurrentUser(user=user, membership=membership, church=church)
 
 
