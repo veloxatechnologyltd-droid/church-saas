@@ -23,7 +23,7 @@ class Communication(Base):
     provider_message_id = Column(String, nullable=True)
     credits_used = Column(Integer, nullable=True)
     sent_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    sent_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    sent_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     status = Column(String, nullable=False, default="queued")
 
     group = relationship("Group")

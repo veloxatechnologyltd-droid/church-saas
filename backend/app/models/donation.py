@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -24,6 +24,7 @@ class FinanceBatch(Base):
 
 class ExpenseCategory(Base):
     __tablename__ = "expense_categories"
+    __table_args__ = (UniqueConstraint("name", name="uq_expense_categories_name"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
@@ -35,6 +36,7 @@ class ExpenseCategory(Base):
 
 class DonationFund(Base):
     __tablename__ = "donation_funds"
+    __table_args__ = (UniqueConstraint("name", name="uq_donation_funds_name"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)

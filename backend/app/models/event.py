@@ -14,7 +14,7 @@ class Event(Base):
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     location = Column(String, nullable=True)
-    start_datetime = Column(DateTime(timezone=True), nullable=False)
+    start_datetime = Column(DateTime(timezone=True), nullable=False, index=True)
     end_datetime = Column(DateTime(timezone=True), nullable=True)
     is_recurring = Column(Boolean, default=False, nullable=False)
     recurrence_rule = Column(String, nullable=True)

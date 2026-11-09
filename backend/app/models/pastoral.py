@@ -11,7 +11,7 @@ class PastoralLog(Base):
     __tablename__ = "pastoral_logs"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    member_id = Column(UUID(as_uuid=True), ForeignKey("members.id", ondelete="CASCADE"), nullable=False)
+    member_id = Column(UUID(as_uuid=True), ForeignKey("members.id", ondelete="CASCADE"), nullable=False, index=True)
     log_type = Column(String, nullable=False)
     notes = Column(Text, nullable=False)
     status = Column(String, nullable=False, default="open", index=True)

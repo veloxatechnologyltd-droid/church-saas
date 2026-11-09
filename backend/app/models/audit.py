@@ -16,4 +16,4 @@ class AuditLog(Base):
     record_id = Column(UUID(as_uuid=True), nullable=True)
     old_value = Column(JSONB, nullable=True)
     new_value = Column(JSONB, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
