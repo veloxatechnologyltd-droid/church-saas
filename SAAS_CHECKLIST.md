@@ -25,13 +25,17 @@ This repo becomes the multi-tenant SaaS product.
 
 ## Phase 0 — Safe setup (do this first)
 
-- [ ] Confirm `git remote -v` points to `veloxatechnologyltd-droid/church-saas`, not the old repo
-- [ ] Create a fresh `backend/.env` from `.env.example` with a **new** `DATABASE_URL` (never Living Spring's)
+- [x] Confirm `git remote -v` points to `veloxatechnologyltd-droid/church-saas`, not the old repo
+- [x] Create a fresh `backend/.env` from `.env.example` with a **new** `DATABASE_URL` (never Living Spring's)
+      (local isolated Postgres via `docker-compose.dev.yml`, port 55440; new generated `SECRET_KEY`)
 - [ ] Use new/dev keys for Cloudinary, SendGrid, Arkesel, Moolre (never Living Spring's live ones)
-- [ ] Edit `render.yaml`: new service names, no references to Living Spring services/URLs
+      (all left **blank** in `.env`, so no Living Spring key is in use; **waiting on owner to provision new dev keys**)
+- [x] Edit `render.yaml`: new service names, no references to Living Spring services/URLs
 - [ ] Update `CORS_ORIGINS` for the new frontend URL
-- [ ] Verify backend boots and existing tests pass on the new DB (`alembic upgrade head`, `pytest`)
-- [ ] Write `docs/SAAS.md` (tenancy model, memberships, branches, roles, theming, billing interface) and link it from `AGENTS.md`
+      (dev origins are set; `render.yaml` has placeholders; **waiting on the real frontend URL from owner**)
+- [x] Verify backend boots and existing tests pass on the new DB (`alembic upgrade head`, `pytest`)
+      (10 migrations apply to an empty DB; `/health/db` OK; 9 tests pass via `unittest`: `pytest` is not in `requirements.txt`)
+- [x] Write `docs/SAAS.md` (tenancy model, memberships, branches, roles, theming, billing interface) and link it from `AGENTS.md`
 
 ## Phase 1 — Tenancy data model
 

@@ -14,6 +14,7 @@ Before writing any code, read ALL instruction files in the `docs/` folder in thi
 6. `docs/MODULES.md` — All feature modules and their requirements
 7. `docs/API.md` — API design conventions and endpoint patterns
 8. `docs/DESIGN.md` — **UI/UX design system, colors, components, and page specs (read before touching any frontend file)**
+9. `docs/SAAS.md` — **Multi-tenant architecture: tenancy, memberships, branches, roles, local dev setup. Where it conflicts with the docs above, SAAS.md and `SAAS_CHECKLIST.md` win.**
 
 ---
 
