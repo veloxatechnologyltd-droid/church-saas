@@ -10,23 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.core.config import settings
 from app.db.database import Base
-from app.models import (
-    AttendanceRecord,
-    AttendanceSession,
-    AuditLog,
-    Announcement,
-    Communication,
-    Event,
-    EventRegistration,
-    Family,
-    Group,
-    GroupMember,
-    Member,
-    ReminderRun,
-    ReminderSchedule,
-    PastoralLog,
-    User,
-)
+import app.models  # noqa: F401  registers every model on Base.metadata (no hand-kept list to forget)
 
 config = context.config
 

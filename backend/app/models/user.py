@@ -12,6 +12,9 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+    # DEPRECATED (Phase 1): a user's role now lives on ``memberships`` (per church).
+    # Auth still reads these two columns until Phase 2 moves it to memberships;
+    # both are dropped in the Phase 2 migration.
     role = Column(String, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     member_id = Column(UUID(as_uuid=True), ForeignKey("members.id"), nullable=True)
