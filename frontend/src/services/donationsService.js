@@ -17,5 +17,6 @@ export const donationsService = {
   bootstrapExpenseCategories: () => api.post('/donations/expense-categories/bootstrap'),
   createExpenseCategory: (payload) => api.post('/donations/expense-categories', payload),
   getMonthlyReport: (params) => api.get('/donations/reports/monthly', { params }),
+  getMonthlyExpenseReport: (params) => api.get('/donations/reports/expenses/monthly', { params }),
   getAnnualReport: (params) => api.get('/donations/reports/annual', { params }),
 };

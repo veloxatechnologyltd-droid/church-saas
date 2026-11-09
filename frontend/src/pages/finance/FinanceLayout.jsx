@@ -4,9 +4,9 @@ import PageHeader from '../../components/shared/PageHeader';
 
 const financeSections = [
   { to: '/finance', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/finance/batches', label: 'Service Batches', icon: ClipboardList },
   { to: '/finance/giving', label: 'Giving', icon: Banknote },
   { to: '/finance/expenses', label: 'Expenses', icon: Receipt },
-  { to: '/finance/batches', label: 'Service Collections', icon: ClipboardList },
   { to: '/finance/funds', label: 'Funds & Categories', icon: Settings2 },
   { to: '/finance/reports', label: 'Reports', icon: BarChart3 },
 ];
@@ -16,7 +16,7 @@ export default function FinanceLayout() {
     <section className="space-y-5">
       <PageHeader
         title="Finance"
-        subtitle="Manage giving, expenses, service collections, funds, and financial reports."
+        subtitle="Manage giving, expenses, service batches, funds, and financial reports."
       />
 
       <nav className="panel flex gap-1 overflow-x-auto p-2" aria-label="Finance sections">

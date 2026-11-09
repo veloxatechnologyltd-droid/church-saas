@@ -47,6 +47,7 @@ Each module has a backend router, CRUD file, model, schema, and a frontend page 
 
 ### Key Business Logic
 - A session must be created before attendance can be marked
+- Staff enter the session name, date, and start time for each meeting; the system must not assume a fixed weekly schedule
 - Bulk mark attendance: accept array of {member_id, status} objects
 - Calculate attendance percentage per member (present / total sessions)
 - Track punctuality from `checked_in_at` against `session_start_time`
@@ -56,7 +57,7 @@ Each module has a backend router, CRUD file, model, schema, and a frontend page 
 
 ## Module 3: Finance
 
-The finance domain should cover both **giving** and **church financial operations**. In a typical church management system, finance is broader than simple donation logging. It should support tithe, offering, harvest, welfare, missions, special seeds, campaigns, statements, service collections, and finance reporting in one place.
+The finance domain should cover both **giving** and **church financial operations**. In a typical church management system, finance is broader than simple donation logging. It should support tithe, offering, harvest, welfare, missions, special seeds, campaigns, statements, service batches, and finance reporting in one place.
 
 **Backend route prefix:** `/api/v1/donations`
 
@@ -68,9 +69,9 @@ The finance domain should cover both **giving** and **church financial operation
 | GET | /{id} | superadmin, finance | Get giving transaction details |
 | GET | /member/{id} | any (own) superadmin, finance (others) | Member giving history |
 | GET | /funds | any | List all church funds and giving categories |
-| GET | /batches | superadmin, finance | List service collections |
-| POST | /batches | superadmin, finance | Open a service collection for a service or event |
-| POST | /batches/{id}/close | superadmin, finance | Close a reviewed service collection |
+| GET | /batches | superadmin, finance | List service batches |
+| POST | /batches | superadmin, finance | Open a service batch for a service or event |
+| POST | /batches/{id}/close | superadmin, finance | Close a reviewed service batch |
 | POST | /funds | superadmin | Create church fund |
 | POST | /funds/bootstrap | superadmin | Load standard church finance funds |
 | GET | /expense-categories | any | List finance expense categories |
@@ -88,7 +89,7 @@ The finance domain should cover both **giving** and **church financial operation
 - Total giving dashboard: sum by fund, sum by month, sum by payment method
 - Finance should also capture expense categories, expense ledger, and monthly cash outflow
 - Generate giving statements per member and optionally per family household
-- Support service collections so finance can reconcile all giving from a particular service or event; closed collections reject new entries
+- Support service batches so finance can reconcile all giving from a particular service or event; closed batches reject new entries
 - Support pledge/campaign tracking for harvest, building project, missions drive, and similar church campaigns
 - Support deposits and reconciliation flow between giving records and church cash/bank balances
 - Support online giving webhook endpoint for Paystack/Flutterwave integration (future)
@@ -165,7 +166,8 @@ The finance domain should cover both **giving** and **church financial operation
 ### Key Business Logic
 - SMS via the configured Arkesel or Moolre REST API (Ghana providers)
 - Email via SendGrid
-- Support sending to: all active members, a specific department, or selected member IDs
+- Support sending to: all members, active members only, inactive members only, a specific department, or selected member IDs
+- `all_members` includes every membership status; SMS delivery still requires a phone number
 - Log every sent communication with timestamp, sender, and recipient count
 - Weekly reminders use the Africa/Accra timezone and are idempotent per scheduled run
 - The reminder runner should be invoked by a platform cron every 5–15 minutes; it must not depend on a browser being open
@@ -220,3 +222,27 @@ GET `/api/v1/reports/dashboard` — returns:
 - Charts data: return arrays of {month, value} for frontend charting (Recharts)
 - Dashboard should show both income and expenses, plus monthly net flow
 - All exports use pandas to generate clean spreadsheets
+
+---
+
+## Module 8: Pastoral Care
+
+**Backend route prefix:** `/api/v1/pastoral`
+
+### Endpoints
+| Method | Path | Role Required | Description |
+|---|---|---|---|
+| GET | / | superadmin, secretary, group_leader | List pastoral care records |
+| GET | /summary | superadmin, secretary, group_leader | Count open, overdue, due-today, and completed work |
+| GET | /attendance-risks | superadmin, secretary | List attendance and inactive-member concerns without an open follow-up |
+| GET | /assignees | superadmin, secretary | List staff eligible to own pastoral care |
+| POST | / | superadmin, secretary | Create and assign a care plan |
+| PUT | /{id} | superadmin, secretary, assigned group_leader | Edit, complete, or reopen a care plan |
+
+### Key Business Logic
+- Care plans may cover visits, calls, counselling, prayer, and welfare actions.
+- Active, inactive, visitor, and new-convert records can receive pastoral follow-up.
+- Each care plan has an owner, priority, next follow-up date, status, and completion timestamp.
+- Follow-up dates are classified as overdue, due today, upcoming, or unscheduled.
+- Attendance-risk suggestions exclude members who already have an open care plan.
+- Group leaders can only view and update care assigned to them.

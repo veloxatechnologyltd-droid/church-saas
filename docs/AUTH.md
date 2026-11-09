@@ -15,7 +15,7 @@ Every protected endpoint requires a valid Bearer token in the `Authorization` he
 | `superadmin` | Full access to everything |
 | `secretary` | Members, attendance, events, communication |
 | `finance` | Church finance operations: giving, funds, statements, reports, and future finance workflows |
-| `group_leader` | Their own department members, attendance, and department SMS |
+| `group_leader` | Their own department members, attendance, department SMS, and pastoral care assigned to them |
 | `member` | Their own profile and giving history only |
 
 ---

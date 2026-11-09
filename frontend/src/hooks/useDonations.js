@@ -50,10 +50,26 @@ export function useFinanceSummary(params) {
 }
 
 
-export function useDonationAnnualReport(year) {
+export function useDonationMonthlyReport(params) {
   return useQuery({
-    queryKey: ['donation-annual-report', year],
-    queryFn: () => donationsService.getAnnualReport({ year }).then((r) => r.data),
+    queryKey: ['donation-monthly-report', params],
+    queryFn: () => donationsService.getMonthlyReport(params).then((r) => r.data),
+  });
+}
+
+
+export function useExpenseMonthlyReport(params) {
+  return useQuery({
+    queryKey: ['expense-monthly-report', params],
+    queryFn: () => donationsService.getMonthlyExpenseReport(params).then((r) => r.data),
+  });
+}
+
+
+export function useDonationAnnualReport(year, filters = {}) {
+  return useQuery({
+    queryKey: ['donation-annual-report', year, filters],
+    queryFn: () => donationsService.getAnnualReport({ year, ...filters }).then((r) => r.data),
   });
 }
 

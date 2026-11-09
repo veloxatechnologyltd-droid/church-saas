@@ -205,7 +205,12 @@ export const ROLES = ['superadmin', 'secretary', 'finance', 'group_leader', 'mem
 export const MEMBERSHIP_STATUS = ['active', 'inactive', 'visitor', 'new_convert'];
 export const MARITAL_STATUS = ['single', 'married', 'divorced', 'widowed'];
 export const DONATION_METHODS = ['cash', 'mobile_money', 'cheque', 'online'];
-export const ATTENDANCE_TYPES = ['sunday_service', 'midweek', 'prayer', 'special'];
+export const CHURCH_SERVICE_TYPES = [
+  { value: 'sunday_service', label: 'Sunday Service' },
+  { value: 'bible_clinic', label: 'Tuesday Bible Clinic' },
+  { value: 'prayer_team', label: 'Wednesday Prayer Team' },
+  { value: 'prayer_into_business', label: 'Friday Prayer Into Business' },
+];
 ```
 
 Finance UI should follow church workflow:

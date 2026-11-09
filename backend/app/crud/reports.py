@@ -1,5 +1,6 @@
 from calendar import month_abbr
 from datetime import date, timedelta
+from uuid import UUID
 
 from sqlalchemy import and_, extract, func
 from sqlalchemy.orm import Session
@@ -51,7 +52,7 @@ def _low_attendance_count(db: Session) -> int:
     return sum(1 for row in rows if row.last_present_date is None or row.last_present_date <= cutoff)
 
 
-def get_dashboard_stats(db: Session) -> dict:
+def get_dashboard_stats(db: Session, pastoral_assigned_to: UUID | None = None) -> dict:
     today = date.today()
     month_start = _month_start(today)
 
@@ -153,7 +154,36 @@ def get_dashboard_stats(db: Session) -> dict:
         )
         .first()
     )
-    open_followups = db.query(func.count(PastoralLog.id)).filter(PastoralLog.status == "open").scalar() or 0
+    pastoral_scope = []
+    if pastoral_assigned_to:
+        pastoral_scope.append(PastoralLog.assigned_to == pastoral_assigned_to)
+    open_followups = (
+        db.query(func.count(PastoralLog.id))
+        .filter(PastoralLog.status == "open", *pastoral_scope)
+        .scalar()
+        or 0
+    )
+    overdue_followups = (
+        db.query(func.count(PastoralLog.id))
+        .filter(
+            PastoralLog.status == "open",
+            PastoralLog.follow_up_date.isnot(None),
+            PastoralLog.follow_up_date < today,
+            *pastoral_scope,
+        )
+        .scalar()
+        or 0
+    )
+    due_today_followups = (
+        db.query(func.count(PastoralLog.id))
+        .filter(
+            PastoralLog.status == "open",
+            PastoralLog.follow_up_date == today,
+            *pastoral_scope,
+        )
+        .scalar()
+        or 0
+    )
 
     return {
         "total_members": total_members,
@@ -180,6 +210,8 @@ def get_dashboard_stats(db: Session) -> dict:
         "sms_failed_this_month": int(sms_rows.failed or 0),
         "active_reminders": db.query(func.count(ReminderSchedule.id)).filter(ReminderSchedule.is_active.is_(True)).scalar() or 0,
         "open_pastoral_followups": int(open_followups),
+        "overdue_pastoral_followups": int(overdue_followups),
+        "pastoral_followups_due_today": int(due_today_followups),
     }
 
 

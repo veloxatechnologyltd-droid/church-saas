@@ -13,8 +13,19 @@ from app.schemas.communication import ReminderScheduleCreate, ReminderScheduleUp
 from app.services.sms import send_sms
 
 
+def _membership_status_for_audience(audience_type: str) -> str | None:
+    if audience_type == "active_members":
+        return "active"
+    if audience_type == "inactive_members":
+        return "inactive"
+    return None
+
+
 def resolve_recipients(db: Session, audience_type: str, group_id: UUID | None = None, member_ids: list[UUID] | None = None):
-    query = db.query(Member).filter(Member.membership_status == "active", Member.phone.isnot(None), Member.phone != "")
+    query = db.query(Member).filter(Member.phone.isnot(None), Member.phone != "")
+    membership_status = _membership_status_for_audience(audience_type)
+    if membership_status:
+        query = query.filter(Member.membership_status == membership_status)
     if audience_type == "department":
         query = query.join(GroupMember, GroupMember.member_id == Member.id).filter(GroupMember.group_id == group_id)
     elif audience_type == "selected_members":
@@ -98,7 +109,7 @@ def update_schedule(db: Session, schedule_id: UUID, payload: ReminderScheduleUpd
     if not schedule:
         return None
     updates = payload.model_dump(exclude_unset=True)
-    if updates.get("audience_type") == "all_members":
+    if updates.get("audience_type") and updates["audience_type"] != "department":
         updates["group_id"] = None
     for field, value in updates.items():
         setattr(schedule, field, value)

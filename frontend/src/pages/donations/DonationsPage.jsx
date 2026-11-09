@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import DataTable from '../../components/shared/DataTable';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import StatCard from '../../components/shared/StatCard';
+import TrendBars from '../../components/shared/TrendBars';
 import {
   useBootstrapDonationFunds,
   useBootstrapExpenseCategories,
@@ -14,8 +15,10 @@ import {
   useCreateFinanceBatch,
   useCloseFinanceBatch,
   useDonationAnnualReport,
+  useDonationMonthlyReport,
   useDonationFunds,
   useDonations,
+  useExpenseMonthlyReport,
   useExpenseCategories,
   useExpenses,
   useFinanceBatches,
@@ -24,10 +27,11 @@ import {
 import { useDashboardReport } from '../../hooks/useReports';
 import { useMembers } from '../../hooks/useMembers';
 import { donationsService } from '../../services/donationsService';
-import { ATTENDANCE_TYPES, DONATION_METHODS, STANDARD_FINANCE_FUNDS } from '../../utils/constants';
+import { CHURCH_SERVICE_TYPES, DONATION_METHODS, STANDARD_FINANCE_FUNDS } from '../../utils/constants';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 
 const currentYear = new Date().getFullYear();
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const ACTION_CARDS = [
   {
@@ -56,13 +60,23 @@ const ACTION_CARDS = [
   },
 ];
 
-function todayISO() { return new Date().toISOString().slice(0, 10); }
+function localISO(date) {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+}
+function todayISO() { return localISO(new Date()); }
 function firstDayOfMonthISO() {
   const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  return localISO(new Date(now.getFullYear(), now.getMonth(), 1));
+}
+function lastDayOfMonthISO() {
+  const now = new Date();
+  return localISO(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 }
 function firstDayOfYearISO() {
-  return new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10);
+  return localISO(new Date(new Date().getFullYear(), 0, 1));
+}
+function lastDayOfYearISO() {
+  return localISO(new Date(new Date().getFullYear(), 11, 31));
 }
 function defaultDonationForm() {
   return { member_id: '', batch_id: '', fund_id: '', amount: '', currency: 'GHS', payment_method: 'cash', reference: '', donation_date: todayISO(), notes: '' };
@@ -107,14 +121,24 @@ export default function DonationsPage({ view = 'overview' }) {
   const [expenseForm, setExpenseForm] = useState(defaultExpenseForm());
   const [expenseCategoryForm, setExpenseCategoryForm] = useState({ name: '', description: '' });
 
+  const reportFilters = useMemo(() => ({
+    start_date: filters.start_date || undefined,
+    end_date: filters.end_date || undefined,
+    fund_id: filters.fund_id || undefined,
+    category_id: filters.category_id || undefined,
+    batch_id: selectedBatchId || undefined,
+  }), [filters, selectedBatchId]);
+
   const donationsQuery = useDonations({ skip: 0, limit: 20, batch_id: selectedBatchId || undefined, fund_id: filters.fund_id || undefined, start_date: filters.start_date || undefined, end_date: filters.end_date || undefined });
   const expensesQuery = useExpenses({ skip: 0, limit: 20, category_id: filters.category_id || undefined, start_date: filters.start_date || undefined, end_date: filters.end_date || undefined });
   const fundsQuery = useDonationFunds();
   const batchesQuery = useFinanceBatches({ include_closed: true });
   const expenseCategoriesQuery = useExpenseCategories();
   const membersQuery = useMembers({ skip: 0, limit: 100 });
-  const annualReportQuery = useDonationAnnualReport(currentYear);
+  const annualReportQuery = useDonationAnnualReport(currentYear, reportFilters);
   const dashboardQuery = useDashboardReport();
+  const incomeTrendQuery = useDonationMonthlyReport({ year: currentYear, ...reportFilters });
+  const expenseTrendQuery = useExpenseMonthlyReport({ year: currentYear, ...reportFilters });
   const summaryQuery = useFinanceSummary({ start_date: filters.start_date || undefined, end_date: filters.end_date || undefined, batch_id: selectedBatchId || undefined, fund_id: filters.fund_id || undefined, category_id: filters.category_id || undefined });
 
   const createDonationMutation = useCreateDonation();
@@ -136,6 +160,11 @@ export default function DonationsPage({ view = 'overview' }) {
   const annual = annualReportQuery.data?.data;
   const dashboard = dashboardQuery.data?.data ?? {};
   const summary = summaryQuery.data?.data ?? {};
+  const incomeTrend = (incomeTrendQuery.data?.data ?? []).map((item) => ({ ...item, month: MONTH_NAMES[(item.month ?? 1) - 1] ?? item.month }));
+  const expenseTrend = (expenseTrendQuery.data?.data ?? []).map((item) => ({ ...item, month: MONTH_NAMES[(item.month ?? 1) - 1] ?? item.month }));
+  const openBatchCount = batches.filter((batch) => !batch.is_closed).length;
+  const closedBatchCount = batches.filter((batch) => batch.is_closed).length;
+  const annualTotal = annual?.total ?? 0;
 
   const isOverview = view === 'overview';
   const isGiving = view === 'giving';
@@ -163,11 +192,12 @@ export default function DonationsPage({ view = 'overview' }) {
   ];
 
   const presetFilters = [
-    { label: 'Today', apply: () => setFilters((p) => ({ ...p, start_date: todayISO(), end_date: todayISO() })) },
-    { label: 'This Month', apply: () => setFilters((p) => ({ ...p, start_date: firstDayOfMonthISO(), end_date: todayISO() })) },
-    { label: 'This Year', apply: () => setFilters((p) => ({ ...p, start_date: firstDayOfYearISO(), end_date: todayISO() })) },
-    { label: 'Clear Dates', apply: () => setFilters((p) => ({ ...p, start_date: '', end_date: '' })) },
+    { label: 'Today', start_date: todayISO(), end_date: todayISO(), apply: () => setFilters((p) => ({ ...p, start_date: todayISO(), end_date: todayISO() })) },
+    { label: 'This Month', start_date: firstDayOfMonthISO(), end_date: lastDayOfMonthISO(), apply: () => setFilters((p) => ({ ...p, start_date: firstDayOfMonthISO(), end_date: lastDayOfMonthISO() })) },
+    { label: 'This Year', start_date: firstDayOfYearISO(), end_date: lastDayOfYearISO(), apply: () => setFilters((p) => ({ ...p, start_date: firstDayOfYearISO(), end_date: lastDayOfYearISO() })) },
+    { label: 'Clear Dates', start_date: '', end_date: '', apply: () => setFilters((p) => ({ ...p, start_date: '', end_date: '' })) },
   ];
+  const activePreset = presetFilters.find((item) => item.start_date === filters.start_date && item.end_date === filters.end_date)?.label;
 
   function resetFilters() {
     setFilters({ start_date: '', end_date: '', fund_id: '', category_id: '' });
@@ -370,9 +400,9 @@ export default function DonationsPage({ view = 'overview' }) {
             <p className="mt-4 text-xs font-bold text-brand-700">Open reports →</p>
           </Link>
           <Link to="/finance/batches" className="panel p-5 transition hover:ring-2 hover:ring-brand-200">
-            <p className="text-sm font-bold text-slate-900">Manage service collections</p>
-            <p className="mt-1 text-sm text-slate-500">Open a service collection, record the giving, and close it after the count is checked.</p>
-            <p className="mt-4 text-xs font-bold text-brand-700">Open collections →</p>
+            <p className="text-sm font-bold text-slate-900">Manage service batches</p>
+            <p className="mt-1 text-sm text-slate-500">Open a service batch, record the giving, and close it after the count is checked.</p>
+            <p className="mt-4 text-xs font-bold text-brand-700">Open service batches →</p>
           </Link>
         </div>
       )}
@@ -410,7 +440,7 @@ export default function DonationsPage({ view = 'overview' }) {
               <form onSubmit={onCreateDonation} className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-1.5 block text-sm font-semibold text-slate-700">Service Collection (recommended)</label>
+                    <label className="mb-1.5 block text-sm font-semibold text-slate-700">Service Batch (recommended)</label>
                     <select className="field" value={donationForm.batch_id || selectedBatchId} onChange={(e) => { const batchId = e.target.value; const batch = openBatches.find((b) => b.id === batchId); setSelectedBatchId(batchId); setDonationForm((prev) => ({ ...prev, batch_id: batchId, donation_date: batch?.service_date || prev.donation_date })); }}>
                       <option value="">No collection / Direct entry</option>
                       {openBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.title} — {formatDate(batch.service_date)}</option>)}
@@ -472,7 +502,7 @@ export default function DonationsPage({ view = 'overview' }) {
                     <input className="field bg-slate-50 text-slate-500" value={titheFund?.name || 'Tithe fund not loaded yet'} disabled />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-sm font-semibold text-slate-700">Service Collection (optional)</label>
+                    <label className="mb-1.5 block text-sm font-semibold text-slate-700">Service Batch (optional)</label>
                     <select className="field" value={donationForm.batch_id || selectedBatchId} onChange={(e) => { const batchId = e.target.value; const batch = openBatches.find((b) => b.id === batchId); setSelectedBatchId(batchId); setDonationForm((prev) => ({ ...prev, batch_id: batchId, donation_date: batch?.service_date || prev.donation_date, fund_id: titheFund?.id || prev.fund_id })); }}>
                       <option value="">No collection</option>
                       {openBatches.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
@@ -561,20 +591,20 @@ export default function DonationsPage({ view = 'overview' }) {
 
         {/* Right — status sidebar */}
         {isGiving && <div className="space-y-4">
-          {/* Selected service collection card */}
+          {/* Selected service batch card */}
           <div className="panel p-5">
-            <SectionLabel>Selected Service Collection</SectionLabel>
+            <SectionLabel>Selected Service Batch</SectionLabel>
             <div className={`rounded-2xl p-4 ${activeBatch ? 'bg-brand-50 ring-1 ring-brand-100' : 'bg-slate-50'}`}>
-              <p className="text-sm font-bold text-slate-900">{activeBatch ? activeBatch.title : 'No collection selected'}</p>
+              <p className="text-sm font-bold text-slate-900">{activeBatch ? activeBatch.title : 'No batch selected'}</p>
               <p className="mt-1 text-xs text-slate-500">
-                {activeBatch ? `${formatDate(activeBatch.service_date)} · ${activeBatch.service_type}${activeBatch.is_closed ? ' · Closed' : ''}` : 'Choose an open service collection to group these entries.'}
+                {activeBatch ? `${formatDate(activeBatch.service_date)} · ${activeBatch.service_type}${activeBatch.is_closed ? ' · Closed' : ''}` : 'Choose an open service batch to group these entries.'}
               </p>
-              {activeBatch?.is_closed && <p className="mt-2 text-xs font-semibold text-accent-700">This collection is closed. Select an open collection before saving a new entry.</p>}
+              {activeBatch?.is_closed && <p className="mt-2 text-xs font-semibold text-accent-700">This batch is closed. Select an open batch before saving a new entry.</p>}
             </div>
             {activeBatch && (
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-xs text-slate-500">Collection Total</p>
+                  <p className="text-xs text-slate-500">Batch Total</p>
                   <p className="mt-1 text-xl font-bold text-slate-900">{formatCurrency(activeBatch?.total_amount ?? 0)}</p>
                 </div>
                 <div className="rounded-xl bg-slate-50 p-3">
@@ -585,16 +615,77 @@ export default function DonationsPage({ view = 'overview' }) {
             )}
           </div>
 
-          {/* Annual giving */}
           <div className="panel p-5">
-            <SectionLabel>Annual Giving {currentYear}</SectionLabel>
-            <BreakdownList items={annual?.funds} loading={annualReportQuery.isLoading} emptyLabel="No giving records yet." />
+            <SectionLabel>Income Records</SectionLabel>
+            {!activeBatch ? (
+              <p className="text-sm text-slate-500">Select a Service Batch to see its income records.</p>
+            ) : donationsQuery.isLoading ? (
+              <LoadingSpinner label="Loading income records…" />
+            ) : !donationRows.length ? (
+              <p className="text-sm text-slate-500">No income recorded for this batch yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {donationRows.map((row) => (
+                  <div key={row.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-800">{row.fund_name || 'Income'}</p>
+                      <p className="truncate text-xs text-slate-500">
+                        {row.member_name || 'General collection'} · {row.payment_method || 'Method not specified'}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-bold text-slate-900">{formatCurrency(row.amount, row.currency || 'GHS')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>}
       </div>}
 
       {/* Finance filter + summary */}
-      {isReports && <div className="panel p-5">
+      {isReports && <div className="flex flex-col gap-5">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Income" value={formatCurrency(summary.income_total ?? 0)} tone="good" icon={TrendingUp} />
+          <StatCard label="Expenses" value={formatCurrency(summary.expense_total ?? 0)} tone="warn" icon={TrendingDown} />
+          <StatCard label="Net" value={formatCurrency(summary.net_total ?? 0)} tone={(summary.net_total ?? 0) >= 0 ? 'good' : 'danger'} />
+          <StatCard label={`Annual Giving ${currentYear}`} value={formatCurrency(annualTotal)} helper="All funds combined" />
+        </div>
+
+        <div className="grid gap-5 xl:grid-cols-2">
+          {incomeTrendQuery.isLoading ? <div className="panel p-5"><LoadingSpinner label="Loading income trend…" /></div> : <TrendBars title={`Monthly Giving ${currentYear}`} data={incomeTrend} color="bg-success-700" />}
+          {expenseTrendQuery.isLoading ? <div className="panel p-5"><LoadingSpinner label="Loading expense trend…" /></div> : <TrendBars title={`Monthly Expenses ${currentYear}`} data={expenseTrend} color="bg-accent-700" />}
+        </div>
+
+        <div className="grid gap-5 xl:grid-cols-2">
+          <div className="panel p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="label-caps mb-1">Annual giving by fund</p>
+                <p className="text-sm text-slate-500">Where giving has been directed this year.</p>
+              </div>
+              <p className="text-lg font-extrabold text-slate-900">{formatCurrency(annualTotal)}</p>
+            </div>
+            <BreakdownList items={annual?.funds} loading={annualReportQuery.isLoading} emptyLabel="No giving records yet." />
+          </div>
+          <div className="panel p-5">
+            <p className="label-caps mb-1">Service batch position</p>
+            <p className="mb-4 text-sm text-slate-500">Track whether service collections still need review.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-brand-50 p-4">
+                <p className="text-xs font-semibold text-brand-700">Open batches</p>
+                <p className="mt-1 text-2xl font-extrabold text-brand-900">{openBatchCount}</p>
+                <p className="mt-1 text-xs text-brand-700">Still accepting entries</p>
+              </div>
+              <div className="rounded-2xl bg-success-50 p-4">
+                <p className="text-xs font-semibold text-success-700">Closed batches</p>
+                <p className="mt-1 text-2xl font-extrabold text-success-900">{closedBatchCount}</p>
+                <p className="mt-1 text-xs text-success-700">Reviewed and reconciled</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="order-first panel p-5">
         <SectionLabel>Filter & Summary</SectionLabel>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <div>
@@ -626,19 +717,13 @@ export default function DonationsPage({ view = 'overview' }) {
 
         <div className="mt-4 flex flex-wrap gap-2">
           {presetFilters.map((item) => (
-            <button key={item.label} type="button" onClick={item.apply} className="rounded-full border border-slate-300 bg-white px-4 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition">
+            <button key={item.label} type="button" onClick={item.apply} className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition ${activePreset === item.label ? 'border-brand-300 bg-brand-50 text-brand-700 ring-2 ring-brand-100' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>
               {item.label}
             </button>
           ))}
           <button type="button" onClick={onExportSummary} disabled={exporting} className="rounded-full bg-slate-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60 transition">
             {exporting ? 'Exporting…' : 'Export CSV'}
           </button>
-        </div>
-
-        <div className="mt-5 grid gap-4 sm:grid-cols-3">
-          <StatCard label="Filtered Income" value={formatCurrency(summary.income_total ?? 0)} tone="good" icon={TrendingUp} />
-          <StatCard label="Filtered Expenses" value={formatCurrency(summary.expense_total ?? 0)} tone="warn" icon={TrendingDown} />
-          <StatCard label="Filtered Net" value={formatCurrency(summary.net_total ?? 0)} tone={(summary.net_total ?? 0) >= 0 ? 'good' : 'danger'} />
         </div>
 
         <div className="mt-5 grid gap-5 xl:grid-cols-2">
@@ -650,6 +735,7 @@ export default function DonationsPage({ view = 'overview' }) {
             <p className="label-caps mb-3">Expenses by Category</p>
             <BreakdownList items={summary.expenses_by_category} loading={summaryQuery.isLoading} emptyLabel="No expense data for this filter." />
           </div>
+        </div>
         </div>
       </div>}
 
@@ -685,16 +771,16 @@ export default function DonationsPage({ view = 'overview' }) {
       {isBatches && (
         <div className="space-y-5">
           <div className="panel p-5">
-            <SectionLabel>Step 1 — Open a service collection</SectionLabel>
-            <p className="mb-4 text-sm text-slate-500">Create one collection for each service or event. You will attach giving entries to it, review the total, and close it when the count is confirmed.</p>
+            <SectionLabel>Step 1 — Open a service batch</SectionLabel>
+            <p className="mb-4 text-sm text-slate-500">The Finance Officer opens one batch for each service or event. Giving entries are attached to it, then the batch is closed after the count is confirmed. Super Admin can also create one.</p>
             <form onSubmit={onCreateBatch} className="grid gap-3 md:grid-cols-2">
-              <input className="field" value={batchForm.title} onChange={(e) => setBatchForm((p) => ({ ...p, title: e.target.value }))} placeholder="Collection name" required />
+              <input className="field" value={batchForm.title} onChange={(e) => setBatchForm((p) => ({ ...p, title: e.target.value }))} placeholder="Service batch name" required />
               <input className="field" type="date" value={batchForm.service_date} onChange={(e) => setBatchForm((p) => ({ ...p, service_date: e.target.value }))} required />
               <select className="field" value={batchForm.service_type} onChange={(e) => setBatchForm((p) => ({ ...p, service_type: e.target.value }))}>
-                {ATTENDANCE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                {CHURCH_SERVICE_TYPES.map((service) => <option key={service.value} value={service.value}>{service.label}</option>)}
               </select>
               <input className="field" value={batchForm.notes} onChange={(e) => setBatchForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Notes (optional)" />
-              <button type="submit" className="btn-primary md:col-span-2 md:w-fit">{createBatchMutation.isPending ? 'Opening…' : 'Open Service Collection'}</button>
+              <button type="submit" className="btn-primary md:col-span-2 md:w-fit">{createBatchMutation.isPending ? 'Opening…' : 'Open Service Batch'}</button>
             </form>
             {selectedBatchId && (
               <Link to={`/finance/giving?batch_id=${selectedBatchId}`} className="mt-4 inline-flex text-sm font-bold text-brand-700 hover:text-brand-900">
@@ -704,10 +790,10 @@ export default function DonationsPage({ view = 'overview' }) {
           </div>
           <div className="panel p-5">
             <div className="mb-4">
-              <p className="text-base font-bold text-slate-900">Service collections</p>
-              <p className="mt-1 text-sm text-slate-500">Step 2: record giving. Step 3: close each collection after the total is checked.</p>
+              <p className="text-base font-bold text-slate-900">Service batches</p>
+              <p className="mt-1 text-sm text-slate-500">Step 2: record giving. Step 3: close each batch after the total is checked.</p>
             </div>
-            {batchesQuery.isLoading ? <LoadingSpinner label="Loading service collections…" /> : <DataTable columns={batchColumns} rows={batches} emptyLabel="No service collections yet" />}
+            {batchesQuery.isLoading ? <LoadingSpinner label="Loading service batches…" /> : <DataTable columns={batchColumns} rows={batches} emptyLabel="No service batches yet" />}
           </div>
         </div>
       )}

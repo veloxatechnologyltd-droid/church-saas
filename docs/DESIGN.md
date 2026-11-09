@@ -188,7 +188,7 @@ Fallback: `system-ui, -apple-system, sans-serif`
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  SIDEBAR (w-64 fixed)  │  MAIN CONTENT AREA (flex-1)            │
+│  SIDEBAR (w-56 fixed)  │  MAIN CONTENT AREA (flex-1)            │
 │                        │  ┌──────────────────────────────────┐  │
 │  [Logo + Church Name]  │  │  TOP NAV BAR (h-16 sticky)       │  │
 │                        │  │  [Search] [Bell] [User Avatar]   │  │
@@ -212,7 +212,7 @@ Fallback: `system-ui, -apple-system, sans-serif`
 ```
 
 ### 4.3 Sidebar Width
-- Desktop (lg+): `w-64` (256px) — fixed, not sticky
+- Desktop (lg+): `w-56` (224px) — fixed, not sticky
 - Tablet (md): collapsible overlay, toggled by hamburger
 - Mobile (sm): bottom navigation bar with icons only
 
@@ -727,7 +727,7 @@ TABLE VIEW:
 
 **Tab Navigation (full width horizontal tabs):**
 ```
-[Giving]  [Expenses]  [Service Collections]  [Funds]  [Reports]
+[Service Batches]  [Giving]  [Expenses]  [Funds]  [Reports]
 ```
 
 **Tab: Giving**
@@ -749,10 +749,10 @@ Table: Date | Category | Description | Amount | Recorded by
 Stat row: [Total Expenses MTD] [Top Category]
 ```
 
-**Tab: Service Collections**
+**Tab: Service Batches**
 ```
 Header: [New Batch +]
-A service collection = one service day's collection envelope
+A service batch = one service day's collection envelope
 Each row: Batch name | Date | Service type | Total collected | Status
 Click to expand: shows all giving records in that batch
 ```
@@ -865,7 +865,7 @@ Capacity: 200 / 250 registered
 └─────────────────────────────┘  └──────────────────────────────┘
 ```
 
-**Automatic Reminders tab:** configure a weekly day, Africa/Accra time, audience, and SMS template. Show active/paused state and last run.
+**Automatic Reminders tab:** configure a weekly day, Africa/Accra time, audience (all members, active members, inactive members, or one department), and SMS template. Show active/paused state and last run.
 
 ---
 
@@ -892,7 +892,7 @@ Attendance, growth, and financial trends for Living Spring.
 └─────────────────────┘  └─────────────────────┘
 ┌─────────────────────┐  ┌─────────────────────┐
 │ Monthly Income      │  │ Income vs Expenses   │
-│ (bar chart)         │  │ (grouped bar chart)  │
+│ (bar chart)         │  │ (green/red line chart)│
 └─────────────────────┘  └─────────────────────┘
 ```
 
@@ -900,6 +900,32 @@ Attendance, growth, and financial trends for Living Spring.
 ```
 Month-by-month breakdown: Month | Members | Attendance % | Income | Expenses | Net
 ```
+
+---
+
+### 6.12 Pastoral Care Page
+
+**Purpose:** turn attendance concerns and member care needs into assigned,
+trackable actions rather than standalone notes.
+
+```
+[Open Care]  [Overdue]  [Due Today]  [Completed]
+
+[Attendance and membership concerns]
+Member | Status | Reason | [Start follow-up]
+
+[Open] [Overdue] [Completed] [All]              [Search]
+
+Member care card:
+Member | Membership status | Priority | Due state
+Care notes
+Action type | Next date | Assigned owner | Source
+[Edit] [Complete / Reopen]
+```
+
+The creation form supports all membership statuses, an action type, priority,
+care owner, next follow-up date, and detailed notes. Group leaders see only
+records assigned to them.
 
 ---
 
@@ -936,7 +962,7 @@ Month-by-month breakdown: Month | Members | Attendance % | Income | Expenses | N
 ### 7.2 Sidebar Styling
 ```
 Background:   bg-white (clean white sidebar)
-Width:        w-64 (256px)
+Width:        w-56 (224px)
 Height:       h-screen sticky top-0
 Right border: border-r border-slate-200
 Padding:      p-4

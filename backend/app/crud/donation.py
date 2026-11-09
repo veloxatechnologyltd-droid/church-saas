@@ -194,14 +194,22 @@ def member_history(db: Session, member_id: UUID) -> list[Donation]:
     )
 
 
-def monthly_report(db: Session, year: int | None = None) -> list[dict]:
+def monthly_report(
+    db: Session,
+    year: int | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    fund_id: UUID | None = None,
+    batch_id: UUID | None = None,
+) -> list[dict]:
     year = year or date.today().year
+    query = db.query(
+        extract("month", Donation.donation_date).label("month"),
+        func.coalesce(func.sum(Donation.amount), 0).label("total_amount"),
+    ).filter(extract("year", Donation.donation_date) == year)
+    query = _apply_donation_filters(query, batch_id=batch_id, fund_id=fund_id, start_date=start_date, end_date=end_date)
     rows = (
-        db.query(
-            extract("month", Donation.donation_date).label("month"),
-            func.coalesce(func.sum(Donation.amount), 0).label("total_amount"),
-        )
-        .filter(extract("year", Donation.donation_date) == year)
+        query
         .group_by(extract("month", Donation.donation_date))
         .order_by(extract("month", Donation.donation_date))
         .all()
@@ -209,21 +217,30 @@ def monthly_report(db: Session, year: int | None = None) -> list[dict]:
     return [{"month": int(row.month), "value": float(row.total_amount)} for row in rows]
 
 
-def annual_report(db: Session, year: int | None = None) -> dict:
+def annual_report(
+    db: Session,
+    year: int | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    fund_id: UUID | None = None,
+    batch_id: UUID | None = None,
+) -> dict:
     year = year or date.today().year
-    total = (
-        db.query(func.coalesce(func.sum(Donation.amount), Decimal("0.00")))
-        .filter(extract("year", Donation.donation_date) == year)
-        .scalar()
-    )
-    by_fund = (
+    donation_query = _apply_donation_filters(
+        db.query(Donation),
+        batch_id=batch_id,
+        fund_id=fund_id,
+        start_date=start_date,
+        end_date=end_date,
+    ).filter(extract("year", Donation.donation_date) == year)
+    total = donation_query.with_entities(func.coalesce(func.sum(Donation.amount), Decimal("0.00"))).scalar()
+    by_fund_query = (
         db.query(DonationFund.name, func.coalesce(func.sum(Donation.amount), 0).label("total_amount"))
         .join(Donation, Donation.fund_id == DonationFund.id)
         .filter(extract("year", Donation.donation_date) == year)
-        .group_by(DonationFund.name)
-        .order_by(DonationFund.name.asc())
-        .all()
     )
+    by_fund_query = _apply_donation_filters(by_fund_query, batch_id=batch_id, fund_id=fund_id, start_date=start_date, end_date=end_date)
+    by_fund = by_fund_query.group_by(DonationFund.name).order_by(DonationFund.name.asc()).all()
     return {
         "year": year,
         "total": float(total or 0),
@@ -326,14 +343,21 @@ def expense_totals(db: Session) -> dict:
     }
 
 
-def monthly_expense_report(db: Session, year: int | None = None) -> list[dict]:
+def monthly_expense_report(
+    db: Session,
+    year: int | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    category_id: UUID | None = None,
+) -> list[dict]:
     year = year or date.today().year
+    query = db.query(
+        extract("month", Expense.expense_date).label("month"),
+        func.coalesce(func.sum(Expense.amount), 0).label("total_amount"),
+    ).filter(extract("year", Expense.expense_date) == year)
+    query = _apply_expense_filters(query, category_id=category_id, start_date=start_date, end_date=end_date)
     rows = (
-        db.query(
-            extract("month", Expense.expense_date).label("month"),
-            func.coalesce(func.sum(Expense.amount), 0).label("total_amount"),
-        )
-        .filter(extract("year", Expense.expense_date) == year)
+        query
         .group_by(extract("month", Expense.expense_date))
         .order_by(extract("month", Expense.expense_date))
         .all()

@@ -13,25 +13,11 @@ import {
   useMarkAttendance,
 } from '../../hooks/useAttendance';
 import { useMembers } from '../../hooks/useMembers';
+import { CHURCH_SERVICE_TYPES } from '../../utils/constants';
 import { formatDate } from '../../utils/formatters';
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-const SESSION_TYPES = [
-  { value: 'sunday_service', label: 'Sunday Service', defaultTime: '08:00' },
-  { value: 'midweek', label: 'Midweek Service', defaultTime: '18:00' },
-  { value: 'prayer', label: 'Prayer Meeting', defaultTime: '18:00' },
-  { value: 'special', label: 'Special Service', defaultTime: '09:00' },
-];
-
-function inferTitle(type) {
-  return SESSION_TYPES.find((t) => t.value === type)?.label ?? 'Service';
-}
-
-function defaultTime(type) {
-  return SESSION_TYPES.find((t) => t.value === type)?.defaultTime ?? '08:00';
+function sessionTypeLabel(value) {
+  return CHURCH_SERVICE_TYPES.find((type) => type.value === value)?.label ?? value?.replaceAll('_', ' ') ?? 'Custom';
 }
 
 const STATUS_COLORS = {
@@ -45,8 +31,9 @@ export default function AttendancePage() {
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [statusMap, setStatusMap] = useState({});
   const [search, setSearch] = useState('');
-  const [quickType, setQuickType] = useState('sunday_service');
-  const [quickStartTime, setQuickStartTime] = useState(defaultTime('sunday_service'));
+  const [quickDate, setQuickDate] = useState('');
+  const [quickStartTime, setQuickStartTime] = useState('');
+  const [quickType, setQuickType] = useState('');
   const [dirty, setDirty] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const changeVersionRef = useRef(0);
@@ -88,7 +75,7 @@ export default function AttendancePage() {
     {
       key: 'session_type',
       label: 'Type',
-      render: (row) => <Badge variant="visitor">{row.session_type || '-'}</Badge>,
+      render: (row) => <Badge variant="visitor">{sessionTypeLabel(row.session_type)}</Badge>,
     },
     {
       key: 'session_start_time',
@@ -130,22 +117,18 @@ export default function AttendancePage() {
     return () => clearTimeout(timer);
   }, [dirty, selectedSessionId, statusMap]);
 
-  useEffect(() => {
-    setQuickStartTime(defaultTime(quickType));
-  }, [quickType]);
-
   async function onQuickStart() {
     const response = await createMutation.mutateAsync({
-      title: inferTitle(quickType),
-      session_date: todayISO(),
-      session_type: quickType,
-      session_start_time: quickStartTime || null,
-      notes: 'Started from quick attendance flow',
+      title: sessionTypeLabel(quickType),
+      session_date: quickDate,
+      session_type: quickType || null,
+      session_start_time: quickStartTime,
+      notes: null,
     });
     const created = response.data?.data;
     if (created?.id) {
       setSelectedSessionId(created.id);
-      setSaveMessage('Service started. Begin check-in below.');
+      setSaveMessage('Session created. Select it below to begin check-in.');
     }
   }
 
@@ -187,24 +170,24 @@ export default function AttendancePage() {
       <div className="panel p-5">
         <div className="flex items-center gap-2 mb-4">
           <Zap size={16} className="text-church-700" />
-          <p className="text-sm font-bold text-slate-900">Quick Start Service</p>
-          <p className="text-xs text-slate-500 ml-1">— Opens a session for today instantly</p>
+          <p className="text-sm font-bold text-slate-900">Create Attendance Session</p>
+          <p className="text-xs text-slate-500 ml-1">— Select the session, date, and time</p>
         </div>
-        <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-          <select value={quickType} onChange={(e) => setQuickType(e.target.value)} className="field">
-            {SESSION_TYPES.map(({ value, label }) => (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.2fr_auto]">
+          <input className="field" type="date" value={quickDate} onChange={(e) => setQuickDate(e.target.value)} required />
+          <div className="flex items-center gap-2 field">
+            <Clock size={14} className="flex-shrink-0 text-slate-400" />
+            <input type="time" value={quickStartTime} onChange={(e) => setQuickStartTime(e.target.value)} className="min-w-0 flex-1 border-0 p-0 text-sm outline-none focus:ring-0 bg-transparent" required />
+          </div>
+          <select value={quickType} onChange={(e) => setQuickType(e.target.value)} className="field" aria-label="Session" required>
+            <option value="">Select session</option>
+            {CHURCH_SERVICE_TYPES.map(({ value, label }) => (
               <option key={value} value={value}>{label}</option>
             ))}
           </select>
-          <div>
-            <div className="flex items-center gap-2 field w-fit">
-              <Clock size={14} className="text-slate-400" />
-              <input type="time" value={quickStartTime} onChange={(e) => setQuickStartTime(e.target.value)} className="border-0 p-0 text-sm outline-none focus:ring-0 bg-transparent" />
-            </div>
-          </div>
-          <button type="button" onClick={onQuickStart} className="btn-primary" disabled={createMutation.isPending}>
+          <button type="button" onClick={onQuickStart} className="btn-primary" disabled={createMutation.isPending || !quickType || !quickDate || !quickStartTime}>
             <Zap size={14} />
-            {createMutation.isPending ? 'Starting…' : "Start Today's Service"}
+            {createMutation.isPending ? 'Creating…' : 'Create Session'}
           </button>
         </div>
       </div>
@@ -257,7 +240,7 @@ export default function AttendancePage() {
           <div className="rounded-2xl border-2 border-dashed border-slate-200 p-8 text-center">
             <CheckSquare size={32} className="mx-auto text-slate-300" strokeWidth={1.5} />
             <p className="mt-3 text-sm font-semibold text-slate-500">Select a session above to begin check-in</p>
-            <p className="mt-1 text-xs text-slate-400">Or use Quick Start to open today's service first</p>
+            <p className="mt-1 text-xs text-slate-400">Or create an attendance session above first</p>
           </div>
         ) : membersQuery.isLoading || selectedSessionQuery.isLoading ? (
           <LoadingSpinner label="Loading check-in board…" />

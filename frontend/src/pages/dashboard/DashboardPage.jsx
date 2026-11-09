@@ -263,7 +263,25 @@ export default function DashboardPage() {
       </div>
 
       {/* Pastoral alert */}
-      {(metrics.low_attendance_members ?? 0) > 0 && (
+      {['superadmin', 'secretary', 'group_leader'].includes(user?.role)
+        && ((metrics.overdue_pastoral_followups ?? 0) > 0 || (metrics.pastoral_followups_due_today ?? 0) > 0) && (
+        <div className="panel flex items-start gap-4 border-l-4 border-accent-700 p-5">
+          <AlertTriangle size={20} className="mt-0.5 flex-shrink-0 text-accent-700" />
+          <div className="flex-1">
+            <p className="font-semibold text-slate-900">
+              {metrics.overdue_pastoral_followups ?? 0} overdue · {metrics.pastoral_followups_due_today ?? 0} due today
+            </p>
+            <p className="mt-0.5 text-sm text-slate-500">
+              Pastoral care actions need attention from their assigned owners.
+            </p>
+          </div>
+          <Link to="/pastoral" className="flex-shrink-0 text-sm font-semibold text-brand-700 hover:text-brand-800">
+            Review care →
+          </Link>
+        </div>
+      )}
+
+      {['superadmin', 'secretary'].includes(user?.role) && (metrics.low_attendance_members ?? 0) > 0 && (
         <div className="panel flex items-start gap-4 border-l-4 border-church-700 p-5">
           <AlertTriangle size={20} className="mt-0.5 flex-shrink-0 text-church-700" />
           <div className="flex-1">
@@ -274,8 +292,8 @@ export default function DashboardPage() {
               These members haven't been seen in 30+ days. Consider reaching out.
             </p>
           </div>
-          <Link to="/members" className="flex-shrink-0 text-sm font-semibold text-brand-700 hover:text-brand-800">
-            View →
+          <Link to="/pastoral" className="flex-shrink-0 text-sm font-semibold text-brand-700 hover:text-brand-800">
+            Start follow-up →
           </Link>
         </div>
       )}

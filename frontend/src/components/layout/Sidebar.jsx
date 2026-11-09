@@ -29,7 +29,7 @@ const navSections = [
       { to: '/groups', label: 'Groups', icon: UsersRound },
       { to: '/events', label: 'Events', icon: CalendarDays },
       { to: '/communication', label: 'Communication', icon: MessageSquare },
-      { to: '/pastoral', label: 'Pastoral Care', icon: HeartPulse },
+      { to: '/pastoral', label: 'Pastoral Care', icon: HeartPulse, roles: ['superadmin', 'secretary', 'group_leader'] },
       { to: '/reports', label: 'Reports', icon: BarChart3 },
     ],
   },
@@ -61,7 +61,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-slate-200 bg-white">
+    <aside className="flex h-screen w-56 flex-col border-r border-slate-200 bg-white">
       {/* Logo / Church identity */}
       <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
         <img src="/logo.jpg" alt="Living Springs Church" className="h-10 w-10 rounded-xl object-cover" />
@@ -77,7 +77,7 @@ export default function Sidebar() {
           <div key={section.title} className="mb-5">
             <p className="label-caps mb-2 px-2">{section.title}</p>
             <div className="space-y-0.5">
-              {section.items.map(({ to, label, icon: Icon }) => (
+              {section.items.filter((item) => !item.roles || item.roles.includes(user?.role)).map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
                   to={to}

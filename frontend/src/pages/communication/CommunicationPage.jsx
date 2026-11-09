@@ -1,4 +1,4 @@
-import { Clock3, History, Megaphone, Send, Smartphone, Trash2, Users } from 'lucide-react';
+import { Clock3, History, Megaphone, Pencil, Send, Smartphone, Trash2, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import PageHeader from '../../components/shared/PageHeader';
@@ -12,11 +12,18 @@ const DAYS = [
   { value: 6, label: 'Sunday' },
 ];
 
+const AUDIENCE_OPTIONS = [
+  { value: 'all_members', label: 'All members' },
+  { value: 'active_members', label: 'Active members' },
+  { value: 'inactive_members', label: 'Inactive members' },
+  { value: 'department', label: 'One department' },
+];
+
 const initialSchedule = {
   name: 'Sunday Service Reminder',
   message_template: 'Dear member, this is a reminder that our Sunday church service is tomorrow. We look forward to worshipping with you.',
   weekday: 6,
-  send_time: '18:00',
+  send_time: '',
   audience_type: 'all_members',
   group_id: '',
 };
@@ -30,6 +37,22 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('en-GH', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
+function formatReminderTime(value) {
+  if (!value) return 'Time not set';
+  const [hours, minutes] = value.split(':').map(Number);
+  const date = new Date(2000, 0, 1, hours, minutes);
+  return new Intl.DateTimeFormat('en-GH', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date);
+}
+
+function formatAudience(audienceType, groupName) {
+  if (audienceType === 'department') return groupName || 'Department';
+  return AUDIENCE_OPTIONS.find((option) => option.value === audienceType)?.label || 'Members';
+}
+
 export default function CommunicationPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState('send');
@@ -37,6 +60,7 @@ export default function CommunicationPage() {
   const [groupId, setGroupId] = useState('');
   const [message, setMessage] = useState('');
   const [schedule, setSchedule] = useState(initialSchedule);
+  const [editingReminderId, setEditingReminderId] = useState(null);
   const [announcement, setAnnouncement] = useState({ title: '', body: '', expires_at: '' });
   const [feedback, setFeedback] = useState(null);
   const { user } = useAuthStore();
@@ -79,15 +103,16 @@ export default function CommunicationPage() {
     },
     onError: (error) => setFeedback({ type: 'error', text: errorMessage(error) }),
   });
-  const createReminderMutation = useMutation({
-    mutationFn: () => communicationService.createReminder({
-      ...schedule,
-      weekday: Number(schedule.weekday),
-      group_id: schedule.audience_type === 'department' ? schedule.group_id : undefined,
-    }),
-    onSuccess: () => {
-      setSchedule(initialSchedule);
-      setFeedback({ type: 'success', text: 'Automatic SMS reminder saved.' });
+  const saveReminderMutation = useMutation({
+    mutationFn: ({ id, payload }) => (
+      id
+        ? communicationService.updateReminder(id, payload)
+        : communicationService.createReminder(payload)
+    ),
+    onSuccess: (_, { id }) => {
+      setSchedule({ ...initialSchedule });
+      setEditingReminderId(null);
+      setFeedback({ type: 'success', text: id ? 'Automatic SMS reminder updated.' : 'Automatic SMS reminder saved.' });
       queryClient.invalidateQueries({ queryKey: ['reminders'] });
     },
     onError: (error) => setFeedback({ type: 'error', text: errorMessage(error) }),
@@ -128,7 +153,33 @@ export default function CommunicationPage() {
   function submitReminder(event) {
     event.preventDefault();
     setFeedback(null);
-    createReminderMutation.mutate();
+    saveReminderMutation.mutate({
+      id: editingReminderId,
+      payload: {
+        ...schedule,
+        weekday: Number(schedule.weekday),
+        group_id: schedule.audience_type === 'department' ? schedule.group_id : undefined,
+      },
+    });
+  }
+
+  function editReminder(reminder) {
+    setEditingReminderId(reminder.id);
+    setSchedule({
+      name: reminder.name,
+      message_template: reminder.message_template,
+      weekday: reminder.weekday,
+      send_time: reminder.send_time?.slice(0, 5) || '',
+      audience_type: reminder.audience_type,
+      group_id: reminder.group_id || '',
+    });
+    setFeedback(null);
+  }
+
+  function cancelReminderEdit() {
+    setEditingReminderId(null);
+    setSchedule({ ...initialSchedule });
+    setFeedback(null);
   }
 
   function submitAnnouncement(event) {
@@ -166,11 +217,11 @@ export default function CommunicationPage() {
       {tab === 'send' && (
         <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
           <form onSubmit={submitSms} className="panel space-y-5 p-6">
-            <div className="flex items-center gap-3"><div className="rounded-xl bg-brand-50 p-3 text-brand-700"><Smartphone size={20} /></div><div><h2 className="text-lg font-bold text-slate-900">Send an SMS</h2><p className="text-sm text-slate-500">Use active members with a phone number.</p></div></div>
+            <div className="flex items-center gap-3"><div className="rounded-xl bg-brand-50 p-3 text-brand-700"><Smartphone size={20} /></div><div><h2 className="text-lg font-bold text-slate-900">Send an SMS</h2><p className="text-sm text-slate-500">Choose all members, active members, inactive members, or one department.</p></div></div>
             <div>
               <label className="mb-2 block text-sm font-semibold text-slate-700">Audience</label>
               <div className="grid gap-2 sm:grid-cols-2">
-                {[['all_members', 'All active members'], ['department', 'One department']].map(([value, label]) => (
+                {AUDIENCE_OPTIONS.map(({ value, label }) => (
                   <label key={value} className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm font-semibold ${audienceType === value ? 'border-brand-700 bg-brand-50 text-brand-700' : 'border-slate-200 text-slate-700'}`}>
                     <input type="radio" name="audience" value={value} checked={audienceType === value} onChange={() => { setAudienceType(value); setGroupId(''); }} className="accent-brand-700" /> {label}
                   </label>
@@ -185,26 +236,29 @@ export default function CommunicationPage() {
             </div>
             <button type="submit" className="btn-primary w-full justify-center" disabled={sendMutation.isPending}><Send size={15} /> {sendMutation.isPending ? 'Sending…' : 'Send SMS'}</button>
           </form>
-          <div className="panel p-6"><p className="label-caps">Useful audiences</p><div className="mt-4 space-y-3 text-sm text-slate-600"><p className="flex gap-2"><Users size={16} className="mt-0.5 text-brand-700" /> All active members for Sunday and church-wide notices.</p><p className="flex gap-2"><Users size={16} className="mt-0.5 text-church-700" /> A department for rehearsals, meetings, and ministry duties.</p><p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">Only members with a phone number are included. Every send is recorded in History.</p></div></div>
+          <div className="panel p-6"><p className="label-caps">Useful audiences</p><div className="mt-4 space-y-3 text-sm text-slate-600"><p className="flex gap-2"><Users size={16} className="mt-0.5 text-brand-700" /> All members includes active, inactive, visitor, and new-convert records.</p><p className="flex gap-2"><Users size={16} className="mt-0.5 text-success-700" /> Active members is useful for regular church-wide notices.</p><p className="flex gap-2"><Users size={16} className="mt-0.5 text-accent-700" /> Inactive members can receive follow-up and reconnection messages.</p><p className="flex gap-2"><Users size={16} className="mt-0.5 text-church-700" /> A department is available for ministry-specific communication.</p><p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">Only members with a phone number can receive SMS. Every send is recorded in History.</p></div></div>
         </div>
       )}
 
       {tab === 'reminders' && (
         <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
           <form onSubmit={submitReminder} className="panel space-y-4 p-6">
-            <div><h2 className="text-lg font-bold text-slate-900">Create automatic reminder</h2><p className="mt-1 text-sm text-slate-500">The schedule uses Africa/Accra time and runs weekly.</p></div>
+            <div><h2 className="text-lg font-bold text-slate-900">{editingReminderId ? 'Edit automatic reminder' : 'Create automatic reminder'}</h2><p className="mt-1 text-sm text-slate-500">Choose the weekly day and time. The schedule uses Africa/Accra time.</p></div>
             <input required className="field" placeholder="Reminder name" value={schedule.name} onChange={(event) => setSchedule({ ...schedule, name: event.target.value })} />
-            <div className="grid gap-4 sm:grid-cols-2"><div><label className="mb-1.5 block text-sm font-semibold text-slate-700">Day</label><select className="field" value={schedule.weekday} onChange={(event) => setSchedule({ ...schedule, weekday: event.target.value })}>{DAYS.map((day) => <option key={day.value} value={day.value}>{day.label}</option>)}</select></div><div><label className="mb-1.5 block text-sm font-semibold text-slate-700">Time</label><input required type="time" className="field" value={schedule.send_time} onChange={(event) => setSchedule({ ...schedule, send_time: event.target.value })} /></div></div>
-            <div><label className="mb-1.5 block text-sm font-semibold text-slate-700">Audience</label><select className="field" value={schedule.audience_type} onChange={(event) => setSchedule({ ...schedule, audience_type: event.target.value, group_id: '' })}><option value="all_members">All active members</option><option value="department">A department</option></select></div>
+            <div className="grid gap-4 sm:grid-cols-2"><div><label className="mb-1.5 block text-sm font-semibold text-slate-700">Day</label><select className="field" value={schedule.weekday} onChange={(event) => setSchedule({ ...schedule, weekday: event.target.value })}>{DAYS.map((day) => <option key={day.value} value={day.value}>{day.label}</option>)}</select></div><div><label className="mb-1.5 block text-sm font-semibold text-slate-700">Send time *</label><input required type="time" step="60" className="field" value={schedule.send_time} onChange={(event) => setSchedule({ ...schedule, send_time: event.target.value })} /><p className="mt-1 text-xs text-slate-400">Select any time in Africa/Accra time.</p></div></div>
+            <div><label className="mb-1.5 block text-sm font-semibold text-slate-700">Audience</label><select className="field" value={schedule.audience_type} onChange={(event) => setSchedule({ ...schedule, audience_type: event.target.value, group_id: '' })}>{AUDIENCE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
             {schedule.audience_type === 'department' && <select required className="field" value={schedule.group_id} onChange={(event) => setSchedule({ ...schedule, group_id: event.target.value })}><option value="">Select department</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select>}
             <div><label className="mb-1.5 block text-sm font-semibold text-slate-700">SMS template *</label><textarea required maxLength={918} className="field min-h-32 resize-y" value={schedule.message_template} onChange={(event) => setSchedule({ ...schedule, message_template: event.target.value })} /></div>
-            <button type="submit" className="btn-primary justify-center" disabled={createReminderMutation.isPending}><Clock3 size={15} /> {createReminderMutation.isPending ? 'Saving…' : 'Save automatic reminder'}</button>
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" className="btn-primary justify-center" disabled={saveReminderMutation.isPending}><Clock3 size={15} /> {saveReminderMutation.isPending ? 'Saving…' : editingReminderId ? 'Save changes' : 'Save automatic reminder'}</button>
+              {editingReminderId && <button type="button" className="btn-outline justify-center" onClick={cancelReminderEdit} disabled={saveReminderMutation.isPending}><X size={15} /> Cancel edit</button>}
+            </div>
           </form>
-          <div className="panel p-6"><p className="label-caps">Configured reminders</p><div className="mt-4 space-y-3">{reminders.map((item) => <div key={item.id} className="rounded-xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{item.name}</p><p className="mt-1 text-xs text-slate-500">Every {DAYS.find((day) => day.value === item.weekday)?.label} at {item.send_time?.slice(0, 5)} · {item.audience_type === 'department' ? item.group_name : 'All active members'}</p></div><span className={`rounded-full px-2 py-1 text-xs font-semibold ${item.is_active ? 'bg-success-50 text-success-700' : 'bg-slate-100 text-slate-500'}`}>{item.is_active ? 'Active' : 'Paused'}</span></div><p className="mt-3 text-sm text-slate-600">{item.message_template}</p><div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3"><span className="text-xs text-slate-400">Last run: {formatDate(item.last_run_at)}</span><button type="button" className="btn-ghost text-accent-700 hover:bg-accent-50" onClick={() => removeReminderMutation.mutate(item.id)}><Trash2 size={14} /> Pause</button></div></div>)}{!reminders.length && <p className="py-8 text-sm text-slate-500">No automatic reminders configured yet.</p>}</div></div>
+          <div className="panel p-6"><p className="label-caps">Configured reminders</p><div className="mt-4 space-y-3">{reminders.map((item) => <div key={item.id} className="rounded-xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-slate-900">{item.name}</p><p className="mt-1 text-xs text-slate-500">Every {DAYS.find((day) => day.value === item.weekday)?.label} at {formatReminderTime(item.send_time)} · {formatAudience(item.audience_type, item.group_name)}</p></div><span className={`rounded-full px-2 py-1 text-xs font-semibold ${item.is_active ? 'bg-success-50 text-success-700' : 'bg-slate-100 text-slate-500'}`}>{item.is_active ? 'Active' : 'Paused'}</span></div><p className="mt-3 text-sm text-slate-600">{item.message_template}</p><div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3"><span className="text-xs text-slate-400">Last run: {formatDate(item.last_run_at)}</span><div className="flex items-center gap-2"><button type="button" className="btn-ghost" onClick={() => editReminder(item)}><Pencil size={14} /> Edit</button>{item.is_active && <button type="button" className="btn-ghost text-accent-700 hover:bg-accent-50" onClick={() => removeReminderMutation.mutate(item.id)}><Trash2 size={14} /> Pause</button>}</div></div></div>)}{!reminders.length && <p className="py-8 text-sm text-slate-500">No automatic reminders configured yet.</p>}</div></div>
         </div>
       )}
 
-      {tab === 'history' && <div className="panel overflow-x-auto"><table className="w-full min-w-[720px] text-left"><thead className="border-b border-slate-200 bg-slate-50"><tr><th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Date</th><th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Audience</th><th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Message</th><th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Result</th></tr></thead><tbody>{history.map((item) => <tr key={item.id} className="border-b border-slate-100"><td className="px-4 py-3 text-sm text-slate-600">{formatDate(item.sent_at)}</td><td className="px-4 py-3 text-sm font-semibold text-slate-800">{item.audience_type === 'department' ? 'Department' : 'All members'}</td><td className="max-w-md px-4 py-3 text-sm text-slate-600">{item.body}</td><td className="px-4 py-3 text-sm text-slate-600">{item.successful_count}/{item.recipient_count} successful <span className="ml-1 rounded-full bg-slate-100 px-2 py-1 text-xs">{item.status}</span></td></tr>)} </tbody></table>{!history.length && <p className="p-8 text-center text-sm text-slate-500">No SMS history yet.</p>}</div>}
+      {tab === 'history' && <div className="panel overflow-x-auto"><table className="w-full min-w-[720px] text-left"><thead className="border-b border-slate-200 bg-slate-50"><tr><th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Date</th><th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Audience</th><th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Message</th><th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Result</th></tr></thead><tbody>{history.map((item) => <tr key={item.id} className="border-b border-slate-100"><td className="px-4 py-3 text-sm text-slate-600">{formatDate(item.sent_at)}</td><td className="px-4 py-3 text-sm font-semibold text-slate-800">{formatAudience(item.audience_type)}</td><td className="max-w-md px-4 py-3 text-sm text-slate-600">{item.body}</td><td className="px-4 py-3 text-sm text-slate-600">{item.successful_count}/{item.recipient_count} successful <span className="ml-1 rounded-full bg-slate-100 px-2 py-1 text-xs">{item.status}</span></td></tr>)} </tbody></table>{!history.length && <p className="p-8 text-center text-sm text-slate-500">No SMS history yet.</p>}</div>}
 
       {tab === 'announcements' && (
         <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">

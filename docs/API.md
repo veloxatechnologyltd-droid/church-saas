@@ -142,7 +142,7 @@ GET    /donations/member/{id}/statement
 
 Current implementation uses `/donations` as the giving API. Product language and future design should treat this as the first part of the broader church `Finance` module.
 Funds may enforce member linkage. Example: `tithe` requires a member, while `offering` does not.
-The UI calls finance batches **Service Collections**. A collection is opened for one service or event, giving entries are attached to it, and an authorised finance user closes it after reviewing the total. Closed collections reject new giving entries.
+The UI calls finance batches **Service Batches**. A batch is opened for one service or event, giving entries are attached to it, and an authorised finance user closes it after reviewing the total. Closed batches reject new giving entries.
 
 ### Departments
 ```
@@ -182,13 +182,24 @@ PUT    /communication/announcements/{id}
 DELETE /communication/announcements/{id}
 ```
 
+Communication audience values are `all_members`, `active_members`,
+`inactive_members`, `department`, and (for targeted workflows)
+`selected_members`. `all_members` includes every membership status; recipients
+without a phone number are omitted from SMS delivery.
+
 ### Pastoral and Audit
 ```
-GET    /pastoral
-POST   /pastoral
-PUT    /pastoral/{id}
+GET    /pastoral                        # list and filter care records
+GET    /pastoral/summary                # open, overdue, due today, completed
+GET    /pastoral/attendance-risks       # members needing a care plan
+GET    /pastoral/assignees              # eligible care owners
+POST   /pastoral                        # create and assign a care plan
+PUT    /pastoral/{id}                   # edit, complete, or reopen
 GET    /audit
 ```
+
+Superadmins and secretaries can create, assign, and manage all pastoral care
+records. Group leaders can view and update only care assigned to them.
 
 ### Reports
 ```

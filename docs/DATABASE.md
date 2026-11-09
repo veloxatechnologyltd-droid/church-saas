@@ -82,8 +82,8 @@ created_at  TIMESTAMP DEFAULT NOW()
 id          UUID PRIMARY KEY DEFAULT gen_random_uuid()
 title       VARCHAR NOT NULL  -- e.g. "Sunday Service", "Midweek Prayer"
 session_date DATE NOT NULL
-session_type VARCHAR  -- sunday_service, midweek, prayer, special
-session_start_time TIME  -- used for punctuality tracking
+session_type VARCHAR  -- sunday_service, bible_clinic, prayer_team, prayer_into_business
+session_start_time TIME  -- entered for each session; used for punctuality tracking
 notes        TEXT
 created_by   UUID FK users.id
 created_at   TIMESTAMP DEFAULT NOW()
@@ -259,7 +259,7 @@ id          UUID PRIMARY KEY DEFAULT gen_random_uuid()
 type        VARCHAR  -- sms, email
 subject     VARCHAR  -- for emails
 body        TEXT NOT NULL
-audience_type VARCHAR  -- all_members, department, selected_members
+audience_type VARCHAR  -- all_members, active_members, inactive_members, department, selected_members
 group_id    UUID FK groups.id NULLABLE
 recipients  TEXT  -- JSON array of resolved member IDs
 recipient_count INTEGER DEFAULT 0
@@ -279,7 +279,7 @@ frequency       VARCHAR DEFAULT 'weekly'
 weekday         INTEGER NOT NULL  -- Monday=0 ... Sunday=6
 send_time       TIME NOT NULL
 timezone        VARCHAR DEFAULT 'Africa/Accra'
-audience_type   VARCHAR NOT NULL  -- all_members or department
+audience_type   VARCHAR NOT NULL  -- all_members, active_members, inactive_members, or department
 group_id        UUID FK groups.id NULLABLE
 start_date      DATE NULLABLE
 end_date        DATE NULLABLE
@@ -319,11 +319,18 @@ updated_at  TIMESTAMP DEFAULT NOW()
 ```sql
 id          UUID PRIMARY KEY DEFAULT gen_random_uuid()
 member_id   UUID FK members.id
-log_type    VARCHAR  -- visit, call, counseling, prayer
+log_type    VARCHAR  -- visit, call, counselling, prayer, welfare
 notes       TEXT
+status      VARCHAR DEFAULT 'open'  -- open, completed
+priority    VARCHAR DEFAULT 'normal'  -- low, normal, high, urgent
+source      VARCHAR DEFAULT 'manual'  -- manual, attendance
+follow_up_date DATE NULLABLE
+assigned_to UUID FK users.id NULLABLE
 logged_by   UUID FK users.id
 log_date    DATE NOT NULL
+completed_at TIMESTAMP NULLABLE
 created_at  TIMESTAMP DEFAULT NOW()
+updated_at  TIMESTAMP DEFAULT NOW()
 ```
 
 ### `audit_logs`

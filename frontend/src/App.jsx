@@ -102,7 +102,14 @@ export default function App() {
             <Route path="events" element={<EventsPage />} />
             <Route path="communication" element={<CommunicationPage />} />
             <Route path="reports" element={<ReportsPage />} />
-            <Route path="pastoral" element={<PastoralPage />} />
+            <Route
+              path="pastoral"
+              element={(
+                <ProtectedRoute allowedRoles={['superadmin', 'secretary', 'group_leader']}>
+                  <PastoralPage />
+                </ProtectedRoute>
+              )}
+            />
           </Route>
         </Routes>
       </AuthBootstrap>

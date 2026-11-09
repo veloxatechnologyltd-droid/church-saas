@@ -18,7 +18,8 @@ router = APIRouter()
 
 @router.get("/dashboard")
 def dashboard(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    data = reports_crud.get_dashboard_stats(db)
+    pastoral_assigned_to = current_user.id if current_user.role == "group_leader" else None
+    data = reports_crud.get_dashboard_stats(db, pastoral_assigned_to=pastoral_assigned_to)
     return {"status": "success", "data": data}
 
 

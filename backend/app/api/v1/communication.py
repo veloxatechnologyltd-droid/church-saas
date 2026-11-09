@@ -173,7 +173,7 @@ def update_reminder(
     if current_user.role == "group_leader":
         if schedule.audience_type != "department" or not schedule.group or not _can_manage_group(current_user, schedule.group):
             raise HTTPException(status_code=403, detail="You cannot manage this reminder")
-        if payload.audience_type == "all_members" or (payload.group_id and payload.group_id != schedule.group_id):
+        if (payload.audience_type and payload.audience_type != "department") or (payload.group_id and payload.group_id != schedule.group_id):
             raise HTTPException(status_code=403, detail="You can only manage reminders for your department")
     if payload.audience_type == "department":
         group = db.query(Group).filter(Group.id == payload.group_id, Group.is_active.is_(True)).first()
@@ -181,8 +181,8 @@ def update_reminder(
             raise HTTPException(status_code=404, detail="Department not found")
         if current_user.role == "group_leader" and not _can_manage_group(current_user, group):
             raise HTTPException(status_code=403, detail="You cannot schedule messages for this department")
-    elif payload.audience_type == "all_members" and current_user.role == "group_leader":
-        raise HTTPException(status_code=403, detail="Department leaders cannot message all members")
+    elif payload.audience_type and current_user.role == "group_leader":
+        raise HTTPException(status_code=403, detail="Department leaders can only message their department")
     updated = communication_crud.update_schedule(db, schedule_id, payload)
     record_audit(db, user_id=current_user.id, action="updated", table_name="reminder_schedules", record_id=schedule_id, new_value=payload.model_dump(exclude_unset=True))
     db.commit()

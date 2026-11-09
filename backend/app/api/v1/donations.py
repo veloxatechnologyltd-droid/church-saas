@@ -169,10 +169,26 @@ def get_member_history(
 @router.get("/reports/monthly")
 def monthly_report(
     year: int | None = Query(default=None, ge=2000, le=2100),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    fund_id: UUID | None = Query(default=None),
+    batch_id: UUID | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("superadmin", "finance")),
 ):
-    return {"status": "success", "data": donation_crud.monthly_report(db, year=year)}
+    return {"status": "success", "data": donation_crud.monthly_report(db, year=year, start_date=start_date, end_date=end_date, fund_id=fund_id, batch_id=batch_id)}
+
+
+@router.get("/reports/expenses/monthly")
+def monthly_expense_report(
+    year: int | None = Query(default=None, ge=2000, le=2100),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    category_id: UUID | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user=Depends(require_roles("superadmin", "finance")),
+):
+    return {"status": "success", "data": donation_crud.monthly_expense_report(db, year=year, start_date=start_date, end_date=end_date, category_id=category_id)}
 
 
 @router.get("/expenses")
@@ -294,10 +310,14 @@ def create_expense_category(
 @router.get("/reports/annual")
 def annual_report(
     year: int | None = Query(default=None, ge=2000, le=2100),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    fund_id: UUID | None = Query(default=None),
+    batch_id: UUID | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("superadmin", "finance")),
 ):
-    return {"status": "success", "data": donation_crud.annual_report(db, year=year)}
+    return {"status": "success", "data": donation_crud.annual_report(db, year=year, start_date=start_date, end_date=end_date, fund_id=fund_id, batch_id=batch_id)}
 
 
 @router.get("/member/{member_id}/statement")
