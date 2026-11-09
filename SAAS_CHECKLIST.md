@@ -34,20 +34,24 @@ This repo becomes the multi-tenant SaaS product.
 - [ ] Update `CORS_ORIGINS` for the new frontend URL
       (dev origins are set; `render.yaml` has placeholders; **waiting on the real frontend URL from owner**)
 - [x] Verify backend boots and existing tests pass on the new DB (`alembic upgrade head`, `pytest`)
-      (10 migrations apply to an empty DB; `/health/db` OK; 9 tests pass via `unittest`: `pytest` is not in `requirements.txt`)
+      (10 migrations apply to an empty DB; `/health/db` OK; 9 tests pass. `pytest` now lives in `backend/requirements-dev.txt`)
 - [x] Write `docs/SAAS.md` (tenancy model, memberships, branches, roles, theming, billing interface) and link it from `AGENTS.md`
 
 ## Phase 1 — Tenancy data model
 
-- [ ] New models + migration: `churches` (name, slug, logo_url, brand colors, timezone, currency, status, plan, trial_ends_at, sms_sender_id, email_from, settings JSON)
-- [ ] New model: `branches` (church_id, name, address, is_main, is_active)
-- [ ] New model: `memberships` (user_id, church_id, role, branch_id nullable, is_active) with unique `(user_id, church_id)`
-- [ ] Keep `users` as global identity (email, password, is_active); move `role` out to `memberships`; keep `member_id` link per church (decide: on membership)
-- [ ] Add `church_id` (NOT NULL, indexed, FK) to every tenant table: announcements, attendance, audit, communication, donations (+funds/categories), events, families, groups, members, pastoral
-- [ ] Add nullable `branch_id` where data is per-branch (attendance, events, donations, pastoral, groups as decided); members get `home_branch_id`
-- [ ] Fix global unique constraints to be per-church: `groups.name` -> `(church_id, name)`, `donations.code` -> `(church_id, code)`, plus any others found
-- [ ] Composite indexes on `(church_id, ...)` for hot queries
-- [ ] Single Alembic migration chain is clean from scratch (`alembic upgrade head` on empty DB)
+- [x] New models + migration: `churches` (name, slug, logo_url, brand colors, timezone, currency, status, plan, trial_ends_at, sms_sender_id, email_from, settings JSON)
+- [x] New model: `branches` (church_id, name, address, is_main, is_active)
+- [x] New model: `memberships` (user_id, church_id, role, branch_id nullable, is_active) with unique `(user_id, church_id)`
+- [x] Keep `users` as global identity (email, password, is_active); move `role` out to `memberships`; keep `member_id` link per church (decide: on membership)
+      (decided: `member_id` is on `memberships`. `users.role` / `users.member_id` stay as **deprecated** columns because auth still reads them; the Phase 2 migration drops them)
+- [x] Add `church_id` (NOT NULL, indexed, FK) to every tenant table: announcements, attendance, audit, communication, donations (+funds/categories), events, families, groups, members, pastoral
+      (19 tables incl. child tables; tenant->tenant references are composite `(col, church_id)` FKs so the DB rejects cross-church links)
+- [x] Add nullable `branch_id` where data is per-branch (attendance, events, donations, pastoral, groups as decided); members get `home_branch_id`
+- [x] Fix global unique constraints to be per-church: `groups.name` -> `(church_id, name)`, `donations.code` -> `(church_id, code)`, plus any others found
+      (it is `donation_funds.code`, not `donations.code`; also `donation_funds.name` and `expense_categories.name`. `users.email` and `churches.slug` stay global)
+- [x] Composite indexes on `(church_id, ...)` for hot queries
+- [x] Single Alembic migration chain is clean from scratch (`alembic upgrade head` on empty DB)
+      (chain is 000001-000013, additive. Tested: empty->head, no model drift, down-then-up round trip. Migration 000012 removes the ownerless seed rows the old chain inserted)
 
 ## Phase 2 — Auth and roles
 
@@ -87,6 +91,7 @@ This repo becomes the multi-tenant SaaS product.
 ## Phase 5 — Onboarding and platform admin
 
 - [ ] Public signup: create church + first user + `church_admin` membership + main branch, start trial
+- [ ] Onboarding creates the church's standard funds and expense categories (existing `bootstrap` logic, now per church). The migrations no longer seed them
 - [ ] Unique church slug generation and validation (reserved words blocked)
 - [ ] Platform admin API: list/search churches, view usage, suspend/reactivate, change plan, impersonate (audited)
 - [ ] Suspended/expired church -> API returns a clear status; data stays, access is read-only or blocked per policy
@@ -131,6 +136,7 @@ This repo becomes the multi-tenant SaaS product.
 ## Phase 9 — Optional: bring Living Spring in as tenant #1
 
 - [ ] Write a one-off import script: Living Spring DB -> this DB under a new `church` (map users to global users plus memberships)
+- [ ] Re-create Living Spring's 10 departments under that church (they were removed from the migration chain in Phase 1)
 - [ ] Custom domain support (e.g. `app.livingspring.org`) with Living Spring's name, logo, colors and SMS sender ID
 - [ ] Dry run on a copy of the production data; verify counts and totals
 - [ ] Cutover plan and rollback plan; keep the old deployment until verified

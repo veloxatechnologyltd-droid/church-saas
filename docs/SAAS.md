@@ -8,15 +8,18 @@ credentials, or API keys.**
 `SAAS_CHECKLIST.md` is the master plan and records the decisions below. This file
 describes the resulting architecture and conventions; update it whenever one changes.
 
-> Status: Phase 0 (safe setup) is done. Sections marked **(planned)** describe the
-> target design for later phases and are not implemented yet.
+> Status: Phases 0 (safe setup) and 1 (tenancy data model) are done. Sections marked
+> **(planned)** describe the target design for later phases and are not implemented
+> yet. **Until Phase 3, the API's write paths do not set `church_id` and will fail**;
+> nothing is deployed, so this is expected. Do not "fix" it piecemeal.
 
 ---
 
 ## Tenancy model
 
 - **One shared Postgres database.** Every tenant-owned table carries `church_id`
-  (NOT NULL, indexed, FK to `churches`). **(planned: Phase 1)**
+  (NOT NULL, indexed, FK to `churches`). Implemented in Phase 1; see
+  `docs/DATABASE.md` -> "Multi-tenancy".
 - **A church is the tenant.** All church data (members, attendance, finance,
   groups, events, communication, pastoral care, audit) belongs to exactly one church.
 - **Isolation is enforced in layers (Phase 3):**
@@ -30,7 +33,7 @@ describes the resulting architecture and conventions; update it whenever one cha
      data on every endpoint.
 - Cross-tenant lookups return **404**, not 403, so existence is not leaked.
 
-## Users, memberships and branches (planned: Phases 1–2)
+## Users, memberships and branches (tables: Phase 1; auth: Phase 2)
 
 - `users` is a **global identity**: email, password hash, active flag. One person
   has one login regardless of how many churches they belong to.
@@ -55,14 +58,25 @@ describes the resulting architecture and conventions; update it whenever one cha
 Church roles can be church-wide or branch-scoped. The full matrix is written into
 `docs/AUTH.md` in Phase 2.
 
-## Open decisions for Phase 1
+## Decisions settled in Phase 1
 
-These were left open by the checklist and are settled in the Phase 1 plan:
-
-- Whether `member_id` (link from a login to a member profile) lives on
-  `memberships` (a member profile is per church) or on `users`.
-- Exactly which tables get `branch_id` (attendance, events, donations, pastoral,
-  groups) and which stay church-wide.
+- `member_id` lives on **`memberships`**: a member profile belongs to one church, so a
+  user in two churches has two profiles. `users.member_id` and `users.role` are kept
+  only as deprecated columns until the Phase 2 migration drops them (auth still reads
+  them until then).
+- `branch_id` is on attendance sessions, finance batches, donations, expenses, groups,
+  events, announcements and pastoral logs; members get `home_branch_id`. Families,
+  funds, expense categories, communications, reminders and audit logs are church-wide.
+- Tenant -> tenant references are **composite FKs including `church_id`**, so the
+  database rejects a reference to another church's row even if application code
+  forgets to check. Postgres FK checks bypass row-level security, so RLS alone would
+  not catch a forged id. This is also why `id_church_unique` exists.
+- Migrations are additive on top of the original chain (000011-000013), not a squash.
+- The migration chain creates **no rows**. The original chain seeded 8 funds, 6 expense
+  categories and the 10 Living Spring departments with no owner church; migration
+  000012 removes them (exact-name match, and refuses to run if any other tenant table
+  has data). Standard funds/categories are created per church at onboarding (Phase 5);
+  the departments return only through the Phase 9 import.
 
 ## Tenant configuration (planned: Phase 4)
 
@@ -108,9 +122,15 @@ cp .env.example .env        # then set a NEW SECRET_KEY; keep third-party keys b
 alembic upgrade head
 uvicorn app.main:app --reload
 
-# 3. Tests
-python -m unittest discover -s tests -t .
+# 3. Tests (pytest; extra dev dependency lives in requirements-dev.txt)
+pip install -r requirements-dev.txt
+pytest
 ```
+
+The tests build a real Postgres database named `church_saas_test` (and short-lived
+`church_saas_<name>_test` scratch databases) next to the dev one by running
+`alembic upgrade head`. They refuse to touch any database whose name does not end in
+`_test`, and they never use the dev database. The dev container must be running.
 
 Reset the database from scratch (destroys all local data):
 `docker compose -f docker-compose.dev.yml down -v`.
