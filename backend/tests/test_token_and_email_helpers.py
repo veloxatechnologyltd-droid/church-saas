@@ -35,10 +35,10 @@ def test_console_sender_logs_instead_of_sending(caplog):
 
 
 def test_unsupported_email_backend_is_refused_not_silently_dropped(monkeypatch):
-    monkeypatch.setattr(email_service.settings, "EMAIL_BACKEND", "sendgrid")
+    monkeypatch.setattr(email_service.settings, "EMAIL_BACKEND", "smtp")
     email_service.get_email_sender.cache_clear()
     try:
-        with pytest.raises(RuntimeError, match="not supported yet"):
+        with pytest.raises(RuntimeError, match="not supported"):
             email_service.get_email_sender()
     finally:
         email_service.get_email_sender.cache_clear()

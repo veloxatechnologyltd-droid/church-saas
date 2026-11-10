@@ -66,7 +66,7 @@ This repo becomes the multi-tenant SaaS product.
 - [x] New dependencies: `get_current_church`, `get_current_membership`, `require_roles(...)` updated for church roles
       (also `get_session_context`, `require_platform_admin`)
 - [x] Invite flow: church admin invites an email into a church with a role/branch (existing user -> adds membership; new user -> set-password link)
-      (emails go to the server log only: no real mail provider yet, waiting on a dev key)
+      (SendGrid sender implemented (`EMAIL_BACKEND=sendgrid`); until the owner sets the key, emails only go to the server log)
 - [x] Password reset flow (email) if not already present
 
 ## Phase 3 — Tenant isolation (highest risk, do not skip)
@@ -139,13 +139,17 @@ This repo becomes the multi-tenant SaaS product.
 ## Phase 8 — Hardening and launch
 
 - [x] Rate limiting on auth and public signup
-      (in-process sliding window per IP on login, reset, invites, signup, public forms; move to Redis before multi-instance scale)
+      (fixed-window counters per IP in Postgres, shared by every serverless instance: login, reset, invites, signup, public forms)
 - [x] Error monitoring (e.g. Sentry) and structured logging with `church_id`
       (structured JSON request logs with request id and church id; Sentry not added: needs a new package and a DSN from the owner)
 - [x] Per-tenant usage metrics (members, SMS sent, storage)
-- [ ] Backups and a tested restore; per-church export/delete (account closure) flow
+- [x] Per-church export/delete (account closure) flow
+      (admin closes the account, 30-day grace, scheduled permanent purge; platform admin can reopen; see `docs/DEPLOYMENT.md`)
+- [ ] Backups and a tested restore (procedure documented in `docs/DEPLOYMENT.md`; **owner must run one restore test**)
 - [ ] Terms of Service, Privacy Policy; Ghana Data Protection Act review (member and donation data is sensitive)
+      (drafts are live at `/terms` and `/privacy`, acceptance is required at signup and recorded; **a Ghanaian lawyer must review the text and the DPC registration is the owner's to do**)
 - [ ] Security review (`/security-review`) with focus on tenant isolation and the invite/impersonation flows
+      (a focused self-review fixed: a late payment could reopen a closed or suspended church, and invitations could be accepted into a closed church; an independent review is still advisable)
 - [ ] Staging environment separate from production
 - [ ] Pilot with 2-3 churches before public launch
 

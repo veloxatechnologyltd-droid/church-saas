@@ -1,19 +1,22 @@
 """HTTP middleware: rate limiting for sensitive public endpoints and structured request logs.
 
-The rate limiter is an in-process sliding window keyed by client IP + rule. With
-several worker processes each one keeps its own window, so the effective limit is
-``limit x workers``; that is acceptable for brute-force protection at this scale. Put a
-shared store (Redis) behind ``RateLimiter`` before scaling out horizontally.
+Rate limiting uses fixed-window counters. The default backend keeps them in Postgres
+(``rate_limit_hits``) so the limit holds across serverless instances; ``memory`` keeps
+them per process and is only right for a single dev server. If the database cannot be
+reached the limiter fails open (and logs): login itself needs the database anyway.
 """
 from __future__ import annotations
 
 import json
 import logging
+import random
 import threading
 import time
 import uuid
 from collections import defaultdict, deque
 
+from sqlalchemy import text
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -35,7 +38,9 @@ RATE_RULES: list[tuple[str, str, int, int]] = [
 ]
 
 
-class RateLimiter:
+class MemoryRateLimiter:
+    """Sliding window in this process only."""
+
     def __init__(self) -> None:
         self._hits: dict[str, deque] = defaultdict(deque)
         self._lock = threading.Lock()
@@ -57,11 +62,66 @@ class RateLimiter:
             self._hits.clear()
 
 
-limiter = RateLimiter()
+class DatabaseRateLimiter:
+    """Fixed-window counters in Postgres, one atomic upsert per limited request."""
+
+    CLEANUP_PROBABILITY = 0.01
+
+    def hit(self, key: str, limit: int, window: int) -> int | None:
+        from app.db.database import engine  # imported late: the engine is built from settings
+
+        now = int(time.time())
+        window_start = now - (now % window)
+        try:
+            with engine.begin() as connection:
+                hits = connection.execute(
+                    text(
+                        "INSERT INTO rate_limit_hits (key, window_start, expires_at, hits) "
+                        "VALUES (:key, :start, :expires, 1) "
+                        "ON CONFLICT (key, window_start) DO UPDATE SET hits = rate_limit_hits.hits + 1 "
+                        "RETURNING hits"
+                    ),
+                    {"key": key[:300], "start": window_start, "expires": window_start + window},
+                ).scalar_one()
+                if random.random() < self.CLEANUP_PROBABILITY:
+                    connection.execute(text("DELETE FROM rate_limit_hits WHERE expires_at < :now"), {"now": now})
+        except Exception:  # fail open: never lock everyone out because the counter is unavailable
+            logger.exception("rate limiter unavailable, allowing request")
+            return None
+        if hits > limit:
+            return max(window_start + window - now, 1)
+        return None
+
+    def reset(self) -> None:
+        from app.db.database import engine
+
+        with engine.begin() as connection:
+            connection.execute(text("DELETE FROM rate_limit_hits"))
+
+
+class _Limiter:
+    """Picks the backend from settings on every call (so tests and config changes apply)."""
+
+    def __init__(self) -> None:
+        self._memory = MemoryRateLimiter()
+        self._database = DatabaseRateLimiter()
+
+    def _backend(self):
+        return self._memory if settings.RATE_LIMIT_BACKEND.strip().lower() == "memory" else self._database
+
+    def hit(self, key: str, limit: int, window: int) -> int | None:
+        return self._backend().hit(key, limit, window)
+
+    def reset(self) -> None:
+        self._memory.reset()
+        self._database.reset()
+
+
+limiter = _Limiter()
 
 
 def client_ip(request: Request) -> str:
-    # Render/Vercel sit behind a proxy that sets X-Forwarded-For; the first entry is the client.
+    # Vercel/Render sit behind a proxy that sets X-Forwarded-For; the first entry is the client.
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         return forwarded.split(",")[0].strip()
@@ -74,7 +134,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             path = request.url.path
             for method, prefix, limit, window in RATE_RULES:
                 if request.method == method and path.startswith(prefix):
-                    wait = limiter.hit(f"{client_ip(request)}|{method}|{prefix}", limit, window)
+                    wait = await run_in_threadpool(limiter.hit, f"{client_ip(request)}|{method}|{prefix}", limit, window)
                     if wait is not None:
                         return JSONResponse(
                             status_code=429,

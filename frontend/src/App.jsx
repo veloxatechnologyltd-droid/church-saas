@@ -30,6 +30,8 @@ const PrayerRequestsPage = lazy(() => import('./pages/prayer/PrayerRequestsPage'
 const CheckinPage = lazy(() => import('./pages/public/CheckinPage'));
 import LandingPage from './pages/public/LandingPage';
 const PricingPage = lazy(() => import('./pages/public/PricingPage'));
+const PrivacyPage = lazy(() => import('./pages/public/PrivacyPage'));
+const TermsPage = lazy(() => import('./pages/public/TermsPage'));
 const PrayerRequestPage = lazy(() => import('./pages/public/PrayerRequestPage'));
 const SignupPage = lazy(() => import('./pages/public/SignupPage'));
 const WelcomePage = lazy(() => import('./pages/public/WelcomePage'));
@@ -110,6 +112,8 @@ export default function App() {
           {/* Public */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />

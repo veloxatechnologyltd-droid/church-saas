@@ -37,17 +37,21 @@ class Settings(BaseSettings):
     FRONTEND_BASE_URL: str = "http://localhost:5173"
     INVITE_EXPIRE_HOURS: int = 168  # 7 days
     PASSWORD_RESET_EXPIRE_MINUTES: int = 60
-    # "console" prints emails to the server log (development). No real provider yet.
+    # sendgrid (production; needs SENDGRID_API_KEY + a verified FROM_EMAIL) | console (dev: logs emails)
     EMAIL_BACKEND: str = "console"
 
     # --- SaaS platform ---
     PRODUCT_NAME: str = "Ekklesia"
+    # Version stamp of the Terms/Privacy text a church accepted at signup (bump when they change).
+    LEGAL_VERSION: str = "2026-11-10"
     ENVIRONMENT: str = "development"  # development | staging | production
     TRIAL_DAYS: int = 14
     TRIAL_PLAN: str = "growth"  # plan whose limits apply during the trial
     GRACE_DAYS: int = 7  # read-only mode starts this long after a paid period ends
     SIGNUP_SMS_CREDITS: int = 50  # welcome credits for a new church
     IMPERSONATION_MINUTES: int = 30
+    # A closed church can be reopened by support for this long; then its data is deleted for good.
+    CLOSURE_RETENTION_DAYS: int = 30
     # fake = test provider (checkout completes from a frontend page; NEVER in production),
     # manual = invoices paid offline and confirmed by a platform admin. The real
     # seevplus = Seevplus hosted checkout (docs.seevcash.com). The API key decides sandbox vs live.
@@ -64,6 +68,9 @@ class Settings(BaseSettings):
         "Questions? Contact support."
     )
     RATE_LIMIT_ENABLED: bool = True
+    # database = shared counters in Postgres (correct on serverless / several instances);
+    # memory = per process (single dev server only).
+    RATE_LIMIT_BACKEND: str = "database"
     # Shared secret for scheduled jobs (Vercel Cron sends "Authorization: Bearer <CRON_SECRET>").
     CRON_SECRET: str = ""
     # How late a reminder may still be sent (lets an hourly/daily cron catch up).

@@ -15,6 +15,7 @@ class Church(Base):
 
     __tablename__ = "churches"
     __table_args__ = (
+        Index("ix_churches_purge_after", "purge_after", postgresql_where=text("status = 'closed'")),
         # URL-safe slug: lowercase letters/digits separated by single hyphens.
         CheckConstraint(r"slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'", name="ck_churches_slug_format"),
         CheckConstraint(
@@ -47,6 +48,9 @@ class Church(Base):
     # Prepaid SMS balance; every change is mirrored in sms_credit_ledger.
     sms_credits = Column(Integer, nullable=False, default=0, server_default="0")
     suspended_reason = Column(Text, nullable=True)
+    # Account closure: access stops at closed_at; the data is purged for good after purge_after.
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    purge_after = Column(DateTime(timezone=True), nullable=True)
     onboarding_completed_at = Column(DateTime(timezone=True), nullable=True)
     settings = Column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

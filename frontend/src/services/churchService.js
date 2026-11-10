@@ -10,6 +10,7 @@ export const churchService = {
   },
   completeOnboarding: () => api.post('/church/onboarding/complete'),
   usage: () => api.get('/church/usage'),
+  close: (payload) => api.post('/church/close', payload),
   exportData: (dataset, format) => downloadFile(`/church/export/${dataset}`, `${dataset}.${format}`, { format }),
 };
 
@@ -47,6 +48,7 @@ export const platformService = {
   church: (id) => api.get(`/platform/churches/${id}`),
   suspend: (id, reason) => api.post(`/platform/churches/${id}/suspend`, { reason }),
   reactivate: (id) => api.post(`/platform/churches/${id}/reactivate`),
+  reopen: (id) => api.post(`/platform/churches/${id}/reopen`),
   changePlan: (id, payload) => api.put(`/platform/churches/${id}/plan`, payload),
   grantSms: (id, payload) => api.post(`/platform/churches/${id}/sms-credits`, payload),
   impersonate: (id) => api.post(`/platform/churches/${id}/impersonate`),

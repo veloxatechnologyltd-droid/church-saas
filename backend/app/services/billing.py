@@ -291,8 +291,11 @@ def apply_paid_invoice(db: Session, invoice: Invoice, method: str = "momo", prov
     sub.provider = invoice.provider
     sub.canceled_at = None
     church.plan = plan.code
-    church.status = "active"
-    church.suspended_reason = None
+    # A payment never lifts a closure or an operator's suspension (e.g. a late webhook for a
+    # closed church); the plan is still recorded so reopening restores what was paid for.
+    if church.status not in ("closed", "suspended"):
+        church.status = "active"
+        church.suspended_reason = None
     # A paid plan includes a monthly SMS allowance; grant the first month now.
     if plan.monthly_sms_credits:
         sms_credits.change_balance(db, church.id, plan.monthly_sms_credits, "monthly_allowance", reference=invoice.number)

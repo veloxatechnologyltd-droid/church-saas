@@ -1,14 +1,20 @@
 """Outgoing email behind a small interface.
 
-Only a console sender (development) and a fake sender (tests) exist. There is no real
-provider yet: wiring one up (SendGrid is already a dependency) is blocked on a new dev
-key, and ``EMAIL_BACKEND`` other than ``console`` is rejected rather than silently
-dropping mail.
+* ``SendGridEmailSender`` (``EMAIL_BACKEND=sendgrid``): production. Calls the SendGrid v3 HTTP
+  API directly with ``httpx``; needs ``SENDGRID_API_KEY`` and a verified ``FROM_EMAIL``.
+* ``ConsoleEmailSender`` (``EMAIL_BACKEND=console``): development only, logs the message.
+* ``FakeEmailSender``: tests.
+
+An unknown ``EMAIL_BACKEND`` is rejected rather than silently dropping mail. Callers treat a
+failed send as non-fatal (the invitation or reset token already exists), so ``send`` raises
+``EmailDeliveryError`` and never includes the message body (it holds secret links) in errors.
 """
 import logging
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Protocol
+
+import httpx
 
 from app.core.config import settings
 
@@ -20,6 +26,10 @@ class EmailMessage:
     to: str
     subject: str
     body: str
+
+
+class EmailDeliveryError(RuntimeError):
+    """The email provider refused or could not be reached."""
 
 
 class EmailSender(Protocol):
@@ -36,6 +46,35 @@ class ConsoleEmailSender:
         )
 
 
+class SendGridEmailSender:
+    """Production: SendGrid v3 ``mail/send`` (plain text; links are the only content that matters)."""
+
+    URL = "https://api.sendgrid.com/v3/mail/send"
+
+    def __init__(self) -> None:
+        if not settings.SENDGRID_API_KEY:
+            raise RuntimeError("SENDGRID_API_KEY is not configured")
+
+    def send(self, message: EmailMessage) -> None:
+        payload = {
+            "personalizations": [{"to": [{"email": message.to}]}],
+            "from": {"email": settings.FROM_EMAIL, "name": settings.FROM_NAME},
+            "subject": message.subject,
+            "content": [{"type": "text/plain", "value": message.body}],
+        }
+        try:
+            response = httpx.post(
+                self.URL,
+                headers={"Authorization": f"Bearer {settings.SENDGRID_API_KEY}"},
+                json=payload,
+                timeout=10.0,
+            )
+        except httpx.HTTPError as exc:
+            raise EmailDeliveryError(f"SendGrid request failed: {type(exc).__name__}") from exc
+        if response.status_code != 202:  # SendGrid answers 202 Accepted on success
+            raise EmailDeliveryError(f"SendGrid rejected the email (HTTP {response.status_code}): {response.text[:300]}")
+
+
 class FakeEmailSender:
     """Tests: collects messages instead of sending them."""
 
@@ -49,12 +88,12 @@ class FakeEmailSender:
 @lru_cache
 def get_email_sender() -> EmailSender:
     """FastAPI dependency; override it in tests."""
-    if settings.EMAIL_BACKEND == "console":
+    backend = settings.EMAIL_BACKEND.strip().lower()
+    if backend == "console":
         return ConsoleEmailSender()
-    raise RuntimeError(
-        f"EMAIL_BACKEND={settings.EMAIL_BACKEND!r} is not supported yet. Only 'console' exists; "
-        "a real provider needs a new dev key first."
-    )
+    if backend == "sendgrid":
+        return SendGridEmailSender()
+    raise RuntimeError(f"EMAIL_BACKEND={settings.EMAIL_BACKEND!r} is not supported (use 'sendgrid' or 'console')")
 
 
 def invitation_email(*, to: str, church_name: str, role: str, link: str, expires_hours: int) -> EmailMessage:

@@ -13,6 +13,7 @@ from app.core.middleware import RateLimitMiddleware, RequestLogMiddleware, Secur
 from app.db.tenancy import TenantViolation
 from app.services.billing import BillingProviderError
 from app.core.config import settings
+from app.core.readiness import production_warnings
 from app.db.database import check_database_connection
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,11 @@ if settings.ENVIRONMENT == "production" and settings.SECRET_KEY in ("change-this
     raise RuntimeError("SECRET_KEY must be set to a long random value in production")
 if settings.ENVIRONMENT == "production" and settings.BILLING_PROVIDER == "fake":
     raise RuntimeError("BILLING_PROVIDER=fake lets anyone mark invoices paid; use 'manual' (or a real provider) in production")
+
+if settings.ENVIRONMENT == "production":
+    # Not fatal (the app must boot while integrations are being set up), but never silent.
+    for _warning in production_warnings():
+        logging.getLogger("app.readiness").warning("NOT READY FOR PRODUCTION - %s", _warning)
 
 _cors_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
 

@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.security import generate_token, hash_password, hash_token
-from app.models.church import Branch
+from app.models.church import Branch, Church
 from app.models.invitation import Invitation
 from app.models.member import Member
 from app.models.membership import Membership
@@ -147,6 +147,9 @@ def accept(db: Session, raw_token: str, password: str | None) -> tuple[Invitatio
         or invitation.revoked_at is not None
         or invitation.expires_at <= now
     ):
+        raise InvitationInvalid()
+    # A closed church accepts no new people (its data is waiting to be deleted).
+    if db.query(Church.status).filter(Church.id == invitation.church_id).scalar() == "closed":
         raise InvitationInvalid()
 
     user = _find_user(db, invitation.email)

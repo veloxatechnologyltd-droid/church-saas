@@ -11,9 +11,11 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.security import verify_password
 from app.core.dependencies import CurrentUser, get_current_user, require_roles
 from app.db.database import get_db
 from app.models.church import Church
+from app.services import closure
 from app.services.audit import record_audit
 from app.services.plans import effective_plan, plan_limits, serialize_plan, usage
 from app.services.storage import save_image
@@ -98,6 +100,8 @@ def serialize_church(church: Church) -> dict:
         "email_from": church.email_from,
         "email_from_name": church.email_from_name,
         "status": church.status,
+        "closed_at": church.closed_at.isoformat() if church.closed_at else None,
+        "purge_after": church.purge_after.isoformat() if church.purge_after else None,
         "plan": church.plan,
         "trial_ends_at": church.trial_ends_at.isoformat() if church.trial_ends_at else None,
         "sms_credits": church.sms_credits,
@@ -276,3 +280,43 @@ def export_dataset(
         writer.writerow([_cell(v) for v in row])
     return StreamingResponse(iter([out.getvalue()]), media_type="text/csv",
                              headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+# ------------------------------------------------------------------ account closure
+class CloseChurchRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=200)
+    confirm_slug: str = Field(min_length=1, max_length=120)
+    reason: Optional[str] = Field(default=None, max_length=500)
+
+
+@router.post("/close")
+def close_church(
+    payload: CloseChurchRequest,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(require_roles("church_admin")),
+):
+    """Close this church's account. Access stops now; the data is deleted for good after
+    ``CLOSURE_RETENTION_DAYS`` (support can reopen it until then). Export your data first.
+
+    Deliberately hard to do by accident or from a stolen session: the admin must retype
+    the church's slug and their own password, and support sessions cannot do it.
+    """
+    church = current_user.church
+    if current_user.impersonating:
+        raise HTTPException(status_code=403, detail="Support sessions cannot close a church")
+    if current_user.is_branch_scoped:
+        raise HTTPException(status_code=403, detail="Only a church-wide administrator can close the church")
+    if payload.confirm_slug.strip().lower() != church.slug:
+        raise HTTPException(status_code=400, detail="The church URL name does not match")
+    if not verify_password(payload.password, current_user.user.hashed_password):
+        raise HTTPException(status_code=400, detail="Incorrect password")
+    record_audit(db, user_id=current_user.id, action="closed", table_name="churches", record_id=church.id,
+                 new_value={"reason": payload.reason})
+    closure.close_church(db, church, actor_id=current_user.id, reason=payload.reason)
+    db.commit()
+    return {"status": "success", "data": {
+        "status": church.status,
+        "closed_at": church.closed_at.isoformat(),
+        "purge_after": church.purge_after.isoformat(),
+        "retention_days": settings.CLOSURE_RETENTION_DAYS,
+    }}

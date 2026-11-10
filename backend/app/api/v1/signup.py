@@ -1,6 +1,7 @@
 """Public self-service signup: a new church, its first admin, and a trial."""
 from typing import Annotated, Optional
 
+from app.core.config import settings
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
@@ -31,6 +32,15 @@ class SignupRequest(BaseModel):
     denomination: Optional[str] = Field(default=None, max_length=80)
     # Spam trap: real users never see or fill this field.
     website: Optional[str] = None
+    # Explicit consent to the Terms of Service and Privacy Policy (recorded with the church).
+    accept_terms: bool = Field(default=False, validate_default=True)
+
+    @field_validator("accept_terms")
+    @classmethod
+    def _must_accept(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("You must accept the Terms of Service and Privacy Policy")
+        return value
 
     @field_validator("email")
     @classmethod
@@ -99,8 +109,13 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         last_name=payload.last_name, phone=payload.phone, country=payload.country.upper(),
         timezone_name=payload.timezone, currency=payload.currency.upper(), denomination=payload.denomination,
     )
+    from datetime import datetime, timezone
+
     from app.services.audit import record_audit
 
+    church.settings = {**(church.settings or {}), "terms_accepted": {
+        "version": settings.LEGAL_VERSION, "at": datetime.now(timezone.utc).isoformat(), "by_user_id": str(user.id),
+    }}
     record_audit(db, user_id=user.id, action="church_created", table_name="churches", record_id=church.id,
                  new_value={"name": church.name, "slug": church.slug})
     db.commit()

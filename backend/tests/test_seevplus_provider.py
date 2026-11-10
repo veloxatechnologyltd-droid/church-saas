@@ -14,7 +14,7 @@ from tests.test_auth_api import bearer
 
 SIGNUP = {
     "church_name": "Grace Chapel Accra", "first_name": "Akosua", "last_name": "Owusu",
-    "email": "akosua@grace.test", "password": "very-secret-1", "phone": "0244000000",
+    "email": "akosua@grace.test", "password": "very-secret-1", "phone": "0244000000", "accept_terms": True,
 }
 SECRET = "whsec_test"
 

@@ -17,7 +17,7 @@ export default function SignupPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [form, setForm] = useState({
-    church_name: '', slug: '', first_name: '', last_name: '', email: '', password: '', phone: '', country: 'GH', denomination: '',
+    church_name: '', slug: '', first_name: '', last_name: '', email: '', password: '', phone: '', country: 'GH', denomination: '', accept_terms: false,
   });
   const [slugTouched, setSlugTouched] = useState(false);
   const [slugState, setSlugState] = useState({ status: 'idle' });
@@ -126,6 +126,10 @@ export default function SignupPage() {
           <Field label="Phone"><input className="field" value={form.phone} onChange={set('phone')} placeholder="024 000 0000" autoComplete="tel" /></Field>
         </div>
         <Field label="Denomination (optional)"><input className="field" value={form.denomination} onChange={set('denomination')} placeholder="e.g. Pentecostal, Methodist" /></Field>
+        <label className="flex items-start gap-2 text-sm text-slate-600">
+          <input type="checkbox" className="mt-1" required checked={form.accept_terms} onChange={(e) => setForm((p) => ({ ...p, accept_terms: e.target.checked }))} />
+          <span>I agree to the <Link to="/terms" target="_blank" className="font-semibold text-brand-700 underline">Terms of Service</Link> and <Link to="/privacy" target="_blank" className="font-semibold text-brand-700 underline">Privacy Policy</Link>.</span>
+        </label>
         <Alert tone="error">{error}</Alert>
         <button type="submit" className="btn-primary w-full justify-center py-3" disabled={busy}>{busy ? 'Creating your church…' : 'Create church'}</button>
         <p className="text-center text-xs text-slate-500">By creating an account you agree to handle your members’ data responsibly under the Ghana Data Protection Act.</p>

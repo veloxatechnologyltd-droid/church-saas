@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.crud.communication import run_due_reminders
+from app.services.closure import purge_due
 from app.db.database import get_db
 from app.db.tenancy import clear_tenant
 
@@ -28,3 +29,11 @@ def cron_reminders(db: Session = Depends(get_db)):
     clear_tenant(db)
     results = run_due_reminders(db)
     return {"status": "success", "data": {"processed": len(results), "results": results}}
+
+
+@router.get("/cron/purge-closed", dependencies=[Depends(_require_cron)])
+@router.post("/cron/purge-closed", dependencies=[Depends(_require_cron)])
+def cron_purge_closed(db: Session = Depends(get_db)):
+    """Permanently delete churches whose closure retention period has ended."""
+    results = purge_due(db)
+    return {"status": "success", "data": {"purged": len(results), "results": results}}

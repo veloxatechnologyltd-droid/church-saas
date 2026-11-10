@@ -14,6 +14,7 @@ from app.models.user import User
 from app.models.invitation import Invitation
 from app.models.password_reset import PasswordResetToken
 from app.models.billing import BillingEvent, Invoice, Payment, Plan, PlatformEvent, SmsCreditEntry, Subscription
+from app.models.rate_limit import RateLimitHit
 from app.models.outreach import Pledge, PledgeCampaign, PledgePayment, PrayerRequest, Visitor
 
 __all__ = [
@@ -22,5 +23,5 @@ __all__ = [
     "ReminderSchedule", "ReminderRun", "Event", "EventRegistration", "PastoralLog", "AuditLog", "AttendanceSession", "AttendanceRecord",
     "FinanceBatch", "DonationFund", "Donation", "ExpenseCategory", "Expense", "Announcement",
     "Plan", "Subscription", "Invoice", "Payment", "BillingEvent", "SmsCreditEntry", "PlatformEvent",
-    "Visitor", "PrayerRequest", "PledgeCampaign", "Pledge", "PledgePayment",
+    "RateLimitHit", "Visitor", "PrayerRequest", "PledgeCampaign", "Pledge", "PledgePayment",
 ]

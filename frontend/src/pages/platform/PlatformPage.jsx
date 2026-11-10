@@ -46,6 +46,7 @@ function ChurchDrawer({ churchId, onClose }) {
   };
   const onError = (err) => { setNotice(''); setError(errorMessage(err)); };
   const suspend = useMutation({ mutationFn: () => platformService.suspend(churchId, reason), onSuccess: done('Church suspended.'), onError });
+  const reopen = useMutation({ mutationFn: () => platformService.reopen(churchId), onSuccess: done('Church reopened.'), onError });
   const reactivate = useMutation({ mutationFn: () => platformService.reactivate(churchId), onSuccess: done('Church reactivated.'), onError });
   const changePlan = useMutation({ mutationFn: () => platformService.changePlan(churchId, { plan_code: plan, status: planStatus }), onSuccess: done('Plan updated.'), onError });
   const markPaid = useMutation({ mutationFn: (invoiceId) => platformService.markInvoicePaid(invoiceId), onSuccess: done('Payment confirmed and applied.'), onError });
@@ -110,7 +111,12 @@ function ChurchDrawer({ churchId, onClose }) {
 
           <section className="space-y-3 rounded-2xl border border-accent-100 bg-accent-50/40 p-4">
             <p className="font-bold text-slate-900">Account status</p>
-            {church.status === 'suspended' ? (
+            {church.status === 'closed' ? (
+              <>
+                <p className="text-sm text-slate-600">Closed by the church{church.purge_after ? `. All its data is permanently deleted on ${new Date(church.purge_after).toLocaleDateString()}` : ''}.</p>
+                <button type="button" className="btn-primary" disabled={reopen.isPending} onClick={() => reopen.mutate()}>Reopen church</button>
+              </>
+            ) : church.status === 'suspended' ? (
               <>
                 {church.suspended_reason ? <p className="text-sm text-slate-600">Reason: {church.suspended_reason}</p> : null}
                 <button type="button" className="btn-primary" disabled={reactivate.isPending} onClick={() => reactivate.mutate()}>Reactivate church</button>

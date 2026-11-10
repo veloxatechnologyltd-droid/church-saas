@@ -14,6 +14,8 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.v1.auth import session_payload
+from app.core.config import settings
+from app.core.readiness import readiness_checks
 from app.core.dependencies import CurrentUser, require_platform_admin
 from app.db.database import get_db
 from app.models.audit import AuditLog
@@ -21,7 +23,7 @@ from app.models.billing import Invoice, Plan, PlatformEvent, SmsCreditEntry
 from app.models.church import Church
 from app.models.member import Member
 from app.models.membership import Membership
-from app.services import sms_credits
+from app.services import closure, sms_credits
 from app.services.audit import record_audit
 from app.services.plans import current_subscription, serialize_plan, usage
 
@@ -193,6 +195,30 @@ def reactivate(church_id: UUID, db: Session = Depends(get_db),
     church.status = previous if previous in ("trialing", "active") else "active"
     church.suspended_reason = None
     _event(db, admin, "church_reactivated", church.id, status=church.status)
+    db.commit()
+    return {"status": "success", "data": {"id": str(church.id), "status": church.status}}
+
+
+@router.get("/readiness")
+def readiness(admin: CurrentUser = Depends(require_platform_admin)):
+    """Which third-party integrations are configured (booleans and hints only, never secrets)."""
+    checks = readiness_checks()
+    return {"status": "success", "data": {
+        "environment": settings.ENVIRONMENT,
+        "ready": all(c["ok"] for c in checks if c["required"]),
+        "checks": checks,
+    }}
+
+
+@router.post("/churches/{church_id}/reopen")
+def reopen(church_id: UUID, db: Session = Depends(get_db),
+           admin: CurrentUser = Depends(require_platform_admin)):
+    """Undo an account closure while the retention period has not ended."""
+    church = _church(db, church_id)
+    try:
+        closure.reopen_church(db, church, actor_id=admin.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return {"status": "success", "data": {"id": str(church.id), "status": church.status}}
 

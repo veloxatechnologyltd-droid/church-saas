@@ -50,3 +50,28 @@ def save_image(church_id: UUID, folder: str, file: UploadFile) -> str:
     filename = f"{uuid4().hex}{_EXTENSIONS[file.content_type]}"
     (directory / filename).write_bytes(data)
     return f"/uploads/{namespace}/{filename}"
+
+
+def delete_church_files(church_id: UUID) -> None:
+    """Remove everything uploaded for a church (account purge). Best effort: a storage
+    failure is logged and must never block deleting the database rows."""
+    import logging
+    import shutil
+
+    log = logging.getLogger("app.storage")
+    namespace = f"church_{church_id}"
+    try:
+        if _cloudinary_enabled():
+            import cloudinary
+            import cloudinary.api
+
+            cloudinary.config(
+                cloud_name=settings.CLOUDINARY_CLOUD_NAME, api_key=settings.CLOUDINARY_API_KEY,
+                api_secret=settings.CLOUDINARY_API_SECRET, secure=True,
+            )
+            cloudinary.api.delete_resources_by_prefix(f"{namespace}/")
+            cloudinary.api.delete_folder(namespace)
+        else:
+            shutil.rmtree(Path("uploads") / namespace, ignore_errors=True)
+    except Exception:
+        log.exception("Could not delete stored files for church %s", church_id)

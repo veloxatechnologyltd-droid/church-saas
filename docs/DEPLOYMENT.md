@@ -32,17 +32,24 @@ API (`ekklesia-api`, Production):
 | `CORS_ORIGINS`, `FRONTEND_BASE_URL` | `https://ekklesia-church.vercel.app` (+ custom domain later) |
 | `BILLING_PROVIDER` | `manual` until live Seevplus keys exist (operator confirms payments in `/platform`); then `seevplus` with `SEEVPLUS_API_KEY` and `BILLING_WEBHOOK_SECRET` |
 | `SMS_PROVIDER`, `ARKESEL_API_KEY` | `arkesel` + **new** key (blank = sending fails with a clear 503) |
-| `EMAIL_BACKEND` | `console` (invites/resets are only logged until a mail provider is added) |
+| `EMAIL_BACKEND`, `SENDGRID_API_KEY`, `FROM_EMAIL`, `FROM_NAME` | `sendgrid` + key + a sender verified in SendGrid. `console` only logs emails (invites and password resets are NOT delivered) |
+| `RATE_LIMIT_ENABLED`, `RATE_LIMIT_BACKEND` | `true`, `database` (counters in Postgres, shared by all serverless instances) |
+| `CLOSURE_RETENTION_DAYS` | `30` (default): how long a closed church's data is kept before permanent deletion |
+| `LEGAL_VERSION` | version stamp stored with each signup's acceptance of the Terms/Privacy text |
 | `CRON_SECRET` | random (set) |
 | `LOG_JSON` | `true` |
 | `CLOUDINARY_*` | required for uploads |
 
-Frontend (`ekklesia-church`): `VITE_API_BASE_URL=https://ekklesia-api.vercel.app/api/v1`.
+Frontend (`ekklesia-church`): `VITE_API_BASE_URL=https://ekklesia-api.vercel.app/api/v1` and `VITE_SUPPORT_EMAIL` (the contact address printed on the Terms and Privacy pages).
+
+Once signed in as the platform admin, `GET /api/v1/platform/readiness` lists every integration that is still unconfigured (no secrets), and the API logs `NOT READY FOR PRODUCTION` lines at startup for each required one.
 
 ## Release procedure
 
 ```bash
-# 1. Migrations (from your machine, against production)
+# 0. Back up first (see Backups below)
+# 1. Migrations (from your machine, against production). ALWAYS before deploying the API:
+#    the models read columns added by the newest migrations.
 cd backend && DATABASE_URL='<prod url>' alembic upgrade head
 
 # 2. Deploy
@@ -68,3 +75,20 @@ Neon keeps point-in-time history (7 days on the free plan, longer on paid plans)
 migration also take a logical dump: `pg_dump "$DATABASE_URL" -Fc -f ekklesia-$(date +%F).dump`, and
 test restoring it into a scratch database (`pg_restore -d <scratch url> ekklesia-....dump`).
 Per-church export is available to church admins in Settings → Data export.
+
+## Scheduled jobs
+
+Vercel Cron (see `backend/vercel.json`) calls, with `Authorization: Bearer $CRON_SECRET`:
+
+* `/api/v1/internal/cron/reminders`: daily 06:00 UTC (Hobby plan limit; add an external scheduler such as cron-job.org every 10 minutes for on-time weekly reminders).
+* `/api/v1/internal/cron/purge-closed`: daily 03:30 UTC; permanently deletes churches whose closure retention period has ended.
+
+## Account closure and data deletion
+
+A church admin closes the account in Settings (password and church URL name required). Access stops
+immediately; data is kept `CLOSURE_RETENTION_DAYS` days, during which a platform admin can reopen it
+(`POST /platform/churches/{id}/reopen`). Afterwards the purge job deletes every row owned by the
+church, its Cloudinary folder (`church_<id>/`) and users who belong to no other church. A
+`church_purged` entry (name, slug, row counts, no personal data) stays in `platform_events`. Invoice
+and payment rows are deleted with the church: if Ghanaian tax-retention rules require keeping
+financial records longer, change `closure.purge_church` to retain those tables before launch.

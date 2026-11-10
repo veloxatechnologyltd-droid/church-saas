@@ -24,7 +24,7 @@ TENANT_TABLES = [
 # Tables that legitimately have no church_id. Anything new must be added here on purpose.
 # Platform data, deliberately not tenant-owned. billing_events/platform_events carry a
 # nullable church_id for reference only.
-GLOBAL_TABLES = {"users", "churches", "password_reset_tokens", "plans", "billing_events", "platform_events"}
+GLOBAL_TABLES = {"users", "churches", "password_reset_tokens", "plans", "billing_events", "platform_events", "rate_limit_hits"}
 # Tables that carry a nullable branch column, and its name.
 BRANCH_COLUMNS = {
     "members": "home_branch_id", "attendance_sessions": "branch_id", "finance_batches": "branch_id",
