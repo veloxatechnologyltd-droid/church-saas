@@ -6,8 +6,9 @@
    (``reopen_church``). The admin is expected to export their data first.
 2. ``purge_church``: after the retention period the scheduled job deletes every
    tenant-owned row (ordered by foreign keys), the church's uploaded files, and any user
-   left without a church. Only a minimal operator record (name, slug, dates) survives in
-   ``platform_events`` as proof that the deletion happened.
+   left without a church. What survives, with no personal data: a minimal record (name, slug,
+   dates, counts) in ``platform_events`` as proof of deletion, and the paid invoices in
+   ``financial_archive`` (accounting/tax record-keeping) for ``FINANCIAL_RETENTION_YEARS``.
 """
 from __future__ import annotations
 
@@ -21,7 +22,9 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.database import Base
 from app.db.tenancy import clear_tenant
-from app.models import Church, Membership, PasswordResetToken, PlatformEvent, Subscription, User
+from app.models import (
+    Church, FinancialArchive, Invoice, Membership, PasswordResetToken, Payment, PlatformEvent, Subscription, User,
+)
 from app.services import storage
 
 logger = logging.getLogger("app.closure")
@@ -71,6 +74,9 @@ def purge_church(db: Session, church_id: UUID) -> dict:
     summary = {"church_name": church.name, "slug": church.slug,
                "closed_at": church.closed_at.isoformat() if church.closed_at else None}
 
+    # Keep the accounting record of money received (no members, no personal data).
+    summary["invoices_archived"] = _archive_paid_invoices(db, church)
+
     # Children before parents: reverse FK order over every table that has a church_id.
     deleted_rows = 0
     for table in reversed(Base.metadata.sorted_tables):
@@ -99,6 +105,33 @@ def purge_church(db: Session, church_id: UUID) -> dict:
     return summary
 
 
+def _archive_paid_invoices(db: Session, church: Church) -> int:
+    count = 0
+    for invoice in db.query(Invoice).filter(Invoice.church_id == church.id, Invoice.status == "paid"):
+        payments = db.query(Payment).filter(Payment.invoice_id == invoice.id, Payment.church_id == church.id).all()
+        db.add(FinancialArchive(
+            closed_church_id=church.id, church_name=church.name, church_slug=church.slug,
+            invoice_number=invoice.number, kind=invoice.kind, description=invoice.description,
+            plan_code=invoice.plan_code, sms_credits=invoice.sms_credits, amount=invoice.amount,
+            currency=invoice.currency, provider=invoice.provider, provider_ref=invoice.provider_ref,
+            paid_at=invoice.paid_at, invoice_created_at=invoice.created_at,
+            payments=[{"amount": str(p.amount), "currency": p.currency, "method": p.method,
+                       "provider": p.provider, "provider_ref": p.provider_ref,
+                       "at": p.created_at.isoformat() if p.created_at else None} for p in payments],
+        ))
+        count += 1
+    db.flush()
+    return count
+
+
+def purge_expired_archive(db: Session) -> int:
+    """Delete archived invoices older than ``FINANCIAL_RETENTION_YEARS``."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=365 * settings.FINANCIAL_RETENTION_YEARS)
+    removed = db.execute(delete(FinancialArchive).where(FinancialArchive.archived_at < cutoff)).rowcount or 0
+    db.commit()
+    return removed
+
+
 def purge_due(db: Session) -> list[dict]:
     """Purge every closed church whose retention period has ended (scheduled job)."""
     clear_tenant(db)
@@ -114,4 +147,5 @@ def purge_due(db: Session) -> list[dict]:
         except Exception:
             db.rollback()
             logger.exception("Could not purge church %s", church_id)
+    purge_expired_archive(db)
     return results

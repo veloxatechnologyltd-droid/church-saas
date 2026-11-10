@@ -152,3 +152,29 @@ class PlatformEvent(Base):
     action = Column(String, nullable=False)
     details = Column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class FinancialArchive(Base):
+    """Anonymised record of a paid invoice, kept after the church's data is purged (see
+    ``services/closure.py``). No church_id and no personal data by design."""
+
+    __tablename__ = "financial_archive"
+    __table_args__ = (Index("ix_financial_archive_archived_at", "archived_at"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    closed_church_id = Column(UUID(as_uuid=True), nullable=False)
+    church_name = Column(String, nullable=False)
+    church_slug = Column(String, nullable=False)
+    invoice_number = Column(String, nullable=False, unique=True)
+    kind = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+    plan_code = Column(String, nullable=True)
+    sms_credits = Column(Integer, nullable=True)
+    amount = Column(Numeric(12, 2), nullable=False)
+    currency = Column(String, nullable=False)
+    provider = Column(String, nullable=True)
+    provider_ref = Column(String, nullable=True)
+    paid_at = Column(DateTime(timezone=True), nullable=True)
+    invoice_created_at = Column(DateTime(timezone=True), nullable=True)
+    payments = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
+    archived_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

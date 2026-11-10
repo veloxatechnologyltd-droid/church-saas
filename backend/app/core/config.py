@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     IMPERSONATION_MINUTES: int = 30
     # A closed church can be reopened by support for this long; then its data is deleted for good.
     CLOSURE_RETENTION_DAYS: int = 30
+    # Paid invoices of a purged church stay (anonymised) in financial_archive this many years.
+    FINANCIAL_RETENTION_YEARS: int = 7
     # fake = test provider (checkout completes from a frontend page; NEVER in production),
     # manual = invoices paid offline and confirmed by a platform admin. The real
     # seevplus = Seevplus hosted checkout (docs.seevcash.com). The API key decides sandbox vs live.

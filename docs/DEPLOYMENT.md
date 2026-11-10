@@ -35,6 +35,7 @@ API (`ekklesia-api`, Production):
 | `EMAIL_BACKEND`, `SENDGRID_API_KEY`, `FROM_EMAIL`, `FROM_NAME` | `sendgrid` + key + a sender verified in SendGrid. `console` only logs emails (invites and password resets are NOT delivered) |
 | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_BACKEND` | `true`, `database` (counters in Postgres, shared by all serverless instances) |
 | `CLOSURE_RETENTION_DAYS` | `30` (default): how long a closed church's data is kept before permanent deletion |
+| `FINANCIAL_RETENTION_YEARS` | `7` (default): years paid invoices stay in the anonymised archive after a church is purged |
 | `LEGAL_VERSION` | version stamp stored with each signup's acceptance of the Terms/Privacy text |
 | `CRON_SECRET` | random (set) |
 | `LOG_JSON` | `true` |
@@ -88,7 +89,12 @@ Vercel Cron (see `backend/vercel.json`) calls, with `Authorization: Bearer $CRON
 A church admin closes the account in Settings (password and church URL name required). Access stops
 immediately; data is kept `CLOSURE_RETENTION_DAYS` days, during which a platform admin can reopen it
 (`POST /platform/churches/{id}/reopen`). Afterwards the purge job deletes every row owned by the
-church, its Cloudinary folder (`church_<id>/`) and users who belong to no other church. A
-`church_purged` entry (name, slug, row counts, no personal data) stays in `platform_events`. Invoice
-and payment rows are deleted with the church: if Ghanaian tax-retention rules require keeping
-financial records longer, change `closure.purge_church` to retain those tables before launch.
+church, its Cloudinary folder (`church_<id>/`) and users who belong to no other church. Two records
+survive, neither with personal data: a `church_purged` entry (name, slug, row counts) in
+`platform_events`, and one `financial_archive` row per **paid** invoice (church name, invoice number,
+amount, payments, dates) for accounting and tax record-keeping. The archive is deleted by the same
+job after `FINANCIAL_RETENTION_YEARS` (default 7; confirm the period your accountant needs).
+
+## Staging
+
+See `docs/STAGING.md`: a separate Vercel project pair and Neon branch, `ENVIRONMENT=staging`.

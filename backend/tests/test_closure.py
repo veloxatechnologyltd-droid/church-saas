@@ -234,3 +234,51 @@ class TestClosedChurchStaysClosed:
         church = session.get(Church, grace["church_id"])
         session.refresh(church)
         assert church.status == "closed"
+
+
+class TestFinancialArchive:
+    def _paid_invoice(self, client, session, who):
+        from app.models import Invoice
+        from app.services import billing
+
+        r = client.post("/api/v1/billing/checkout", json={"plan_code": "growth", "billing_cycle": "monthly"}, headers=who["headers"])
+        assert r.status_code in (200, 201), r.text
+        invoice = session.query(Invoice).filter_by(church_id=who["church_id"]).first()
+        billing.apply_paid_invoice(session, invoice, method="manual")
+        session.refresh(invoice)
+        return invoice
+
+    def test_paid_invoices_survive_the_purge_without_personal_data(self, client, session, grace):
+        from app.models import FinancialArchive, Invoice, Payment
+
+        invoice = self._paid_invoice(client, session, grace)
+        number, amount = invoice.number, invoice.amount
+        _close(client, grace)
+        church = session.get(Church, grace["church_id"])
+        church.purge_after = datetime.now(timezone.utc) - timedelta(minutes=1)
+        session.flush()
+        clear_tenant(session)
+
+        results = closure.purge_due(session)
+        assert results[0]["invoices_archived"] == 1
+        assert session.query(Invoice).filter_by(number=number).count() == 0
+        assert session.query(Payment).count() == 0
+        row = session.query(FinancialArchive).filter_by(invoice_number=number).one()
+        assert row.amount == amount and row.church_name == "Grace Chapel Accra" and len(row.payments) == 1
+        assert "akosua@grace.test" not in str(row.__dict__)
+
+    def test_archive_is_deleted_after_the_retention_years(self, client, session, grace, monkeypatch):
+        from app.models import FinancialArchive
+
+        self._paid_invoice(client, session, grace)
+        _close(client, grace)
+        church = session.get(Church, grace["church_id"])
+        church.purge_after = datetime.now(timezone.utc) - timedelta(minutes=1)
+        session.flush()
+        clear_tenant(session)
+        closure.purge_due(session)
+        assert session.query(FinancialArchive).count() == 1
+        monkeypatch.setattr(settings, "FINANCIAL_RETENTION_YEARS", 0)
+        session.query(FinancialArchive).update({"archived_at": datetime.now(timezone.utc) - timedelta(days=1)})
+        session.flush()
+        assert closure.purge_expired_archive(session) == 1

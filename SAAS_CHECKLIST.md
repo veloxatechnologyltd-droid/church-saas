@@ -151,6 +151,7 @@ This repo becomes the multi-tenant SaaS product.
 - [ ] Security review (`/security-review`) with focus on tenant isolation and the invite/impersonation flows
       (a focused self-review fixed: a late payment could reopen a closed or suspended church, and invitations could be accepted into a closed church; an independent review is still advisable)
 - [ ] Staging environment separate from production
+      (runbook in `docs/STAGING.md`; **the Neon branch and the two Vercel projects are for the owner to create**)
 - [ ] Pilot with 2-3 churches before public launch
 
 ## Phase 9 — Optional: bring Living Spring in as tenant #1
