@@ -30,7 +30,7 @@ API (`ekklesia-api`, Production):
 | `SECRET_KEY` | long random string (set) |
 | `ENVIRONMENT` | `production` (hides `/docs`, refuses default secret and the fake billing provider) |
 | `CORS_ORIGINS`, `FRONTEND_BASE_URL` | `https://ekklesia-church.vercel.app` (+ custom domain later) |
-| `BILLING_PROVIDER` | `manual` until Seevplus docs arrive (operator confirms payments in `/platform`) |
+| `BILLING_PROVIDER` | `manual` until live Seevplus keys exist (operator confirms payments in `/platform`); then `seevplus` with `SEEVPLUS_API_KEY` and `BILLING_WEBHOOK_SECRET` |
 | `SMS_PROVIDER`, `ARKESEL_API_KEY` | `arkesel` + **new** key (blank = sending fails with a clear 503) |
 | `EMAIL_BACKEND` | `console` (invites/resets are only logged until a mail provider is added) |
 | `CRON_SECRET` | random (set) |

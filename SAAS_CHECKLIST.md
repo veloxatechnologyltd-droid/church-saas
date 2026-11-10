@@ -28,8 +28,8 @@ This repo becomes the multi-tenant SaaS product.
 - [x] Confirm `git remote -v` points to `veloxatechnologyltd-droid/church-saas`, not the old repo
 - [x] Create a fresh `backend/.env` from `.env.example` with a **new** `DATABASE_URL` (never Living Spring's)
       (local isolated Postgres via `docker-compose.dev.yml`, port 55440; new generated `SECRET_KEY`)
-- [ ] Use new/dev keys for Cloudinary, SendGrid, Arkesel, Moolre (never Living Spring's live ones)
-      (all left **blank** in `.env`, so no Living Spring key is in use; **waiting on owner to provision new dev keys**)
+- [ ] Use new/dev keys for Cloudinary, SendGrid, Arkesel, Seevplus (never Living Spring's live ones). Moolre is no longer needed: SMS is Arkesel
+      (all left **blank** in `.env`, so no Living Spring key is in use; **owner will set up the keys later**)
 - [x] Edit `render.yaml`: new service names, no references to Living Spring services/URLs
 - [ ] Update `CORS_ORIGINS` for the new frontend URL
       (dev origins are set; `render.yaml` has placeholders; **waiting on the real frontend URL from owner**)
@@ -87,6 +87,7 @@ This repo becomes the multi-tenant SaaS product.
 ## Phase 4 — Per-tenant configuration and integrations
 
 - [x] Move SMS sender ID, email from-address/name from `core/config.py` env vars to the `churches` record (env stays as platform defaults only)
+      (Arkesel: the owner registers a sender ID per church. New churches start with none and use the platform default `ARKESEL_SENDER_ID` until one is set)
 - [x] Per-church Cloudinary folder (`church_{id}/...`)
       (`services/storage.py`: `church_<id>/<folder>`, local fallback in dev)
 - [x] SMS credits per church: balance, deduct on send, block when empty, ledger table
@@ -123,7 +124,7 @@ This repo becomes the multi-tenant SaaS product.
 
 ## Phase 7 — Billing (Seevplus)
 
-- [ ] **Blocked until the owner provides Seevplus API docs.** Ask before implementing the provider
+- [x] Seevplus API docs received (https://docs.seevcash.com); real provider implemented in `services/billing.py`
 - [x] Models: `plans`, `subscriptions`, `invoices`, `payments`, `billing_events` (webhook log, idempotent)
 - [x] `BillingProvider` interface (create checkout/payment link, verify webhook, cancel, status) with a `FakeProvider` for tests and a `SeevplusProvider` for real use
       (`services/billing.py`: Fake (dev/test), Manual (production: offline MoMo/bank, operator confirms), Seevplus stub)
@@ -131,6 +132,7 @@ This repo becomes the multi-tenant SaaS product.
 - [x] Trial, grace period, and read-only mode on non-payment
 - [x] Webhook endpoint: signature verification, idempotency, replay-safe
 - [ ] GHS pricing and mobile money support confirmed with Seevplus
+      (docs confirm GHS mobile money (MTN, Telecel, AT) is live; **fees and minimum amounts are not documented: ask Seevplus**. Still to do: live keys, webhook endpoint registered, one sandbox end-to-end run)
 - [x] Billing UI: current plan, upgrade/downgrade, invoices, payment history
 - [x] Prepaid SMS credit top-up via the same provider
 

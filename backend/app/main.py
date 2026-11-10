@@ -11,6 +11,7 @@ from app.api.v1 import pledges, prayer_requests, public, visitors
 from app.api.v1 import billing, branches, church, internal, platform, signup, team
 from app.core.middleware import RateLimitMiddleware, RequestLogMiddleware, SecurityHeadersMiddleware
 from app.db.tenancy import TenantViolation
+from app.services.billing import BillingProviderError
 from app.core.config import settings
 from app.db.database import check_database_connection
 
@@ -89,6 +90,13 @@ async def _tenant_violation(request: Request, exc: TenantViolation):
     # Never reveal that the other church's record exists.
     logging.getLogger("app.security").warning("Tenant violation blocked: %s path=%s", exc, request.url.path)
     return JSONResponse(status_code=404, content={"detail": "Not found"})
+
+
+@app.exception_handler(BillingProviderError)
+async def _billing_provider_error(request: Request, exc: BillingProviderError):
+    # The payment provider failed or refused; nothing was charged and the invoice was rolled back.
+    logging.getLogger("app.billing").error("Billing provider error: %s path=%s", exc, request.url.path)
+    return JSONResponse(status_code=502, content={"detail": "The payment provider is unavailable. Please try again shortly."})
 
 
 @app.get("/")

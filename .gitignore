@@ -12,3 +12,8 @@ frontend/.env.local
 
 frontend/dist/
 .playwright-mcp/
+
+# Neon CLI writes connection strings here (never commit)
+.env
+backend/.env.production
+backend/.neon-api-key

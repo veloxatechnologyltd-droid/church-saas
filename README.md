@@ -23,7 +23,7 @@ across one or many branches.
 
 Platform side: self-service signup with a 14-day trial, plans with enforced limits (Free / Growth / Kingdom /
 Enterprise, priced in GHS), read-only mode after a lapsed trial or payment, billing behind a provider interface
-(Seevplus pending API docs; a fake provider is used for development), signed idempotent webhooks, and a platform
+(Seevplus provider built, pending live keys; a fake provider is used for development), signed idempotent webhooks, and a platform
 admin console (stats, MRR, suspend/reactivate, plan changes, SMS credit grants, audited impersonation).
 
 ## Architecture

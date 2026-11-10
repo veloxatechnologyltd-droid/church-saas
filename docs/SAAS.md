@@ -8,8 +8,8 @@ credentials, or API keys.**
 `SAAS_CHECKLIST.md` is the master plan and records the decisions below. This file
 describes the resulting architecture and conventions; update it whenever one changes.
 
-> Status: Phases 0-6 are done, Phase 7 is done except the real Seevplus provider (blocked on its API
-> docs; the `manual` provider is used in production), and Phase 8 is partly done (rate limiting,
+> Status: Phases 0-6 are done, Phase 7 is done (the real Seevplus provider is built and tested against mocked HTTP; it
+> still needs live keys, and `manual` stays the production default until then), and Phase 8 is partly done (rate limiting,
 > structured logs, usage metrics, deployment docs). See `docs/API_SAAS.md` for the SaaS endpoints
 > and `docs/DEPLOYMENT.md` for production. Tenant scoping lives in `backend/app/db/tenancy.py`.
 
@@ -96,11 +96,27 @@ Phase 6; custom domains come later.
 ## Billing (Phase 7)
 
 Billing provider is **Seevplus** (a Seevcash product), behind a
-provider-agnostic `BillingProvider` interface (create checkout/payment link,
-verify webhook, cancel, status). A `FakeProvider` is used for tests. The real
-`SeevplusProvider` is **blocked until the owner supplies the Seevplus API
-documentation** — do not guess endpoints. Webhooks must verify signatures and be
-idempotent.
+provider-agnostic `BillingProvider` interface (create checkout, verify webhook,
+cancel). Providers: `fake` (dev/tests), `manual` (offline MoMo/bank, an operator marks
+invoices paid), `seevplus` (real). API docs: https://docs.seevcash.com.
+
+`SeevplusProvider` (`backend/app/services/billing.py`):
+
+- Checkout: `POST {SEEVPLUS_BASE_URL}/api/v1/developer/payments`, bearer `SEEVPLUS_API_KEY`
+  (the key decides sandbox vs live), amount in **pesewas**, `channels: ["mobile_money"]`
+  (the only live method today; card/bank are "coming soon"). `Idempotency-Key` is
+  `invoice_<id>`. The returned `reference` is stored as `invoice.provider_ref`. If Seevplus
+  fails, the invoice is deleted and the API returns 502.
+- Webhook: `POST /api/v1/billing/webhooks/seevplus`. Header `X-Seev-Signature` is
+  `v1=` + HMAC-SHA256 of `"{X-Seev-Timestamp}.{raw body}"` with `BILLING_WEBHOOK_SECRET`
+  (the endpoint signing secret, shown once); timestamps older than 5 minutes are rejected.
+  Dedupe is on `reference:status` (the envelope id changes on replays). The paid amount and
+  currency must equal the invoice, or the event is logged with an error and nothing is granted.
+- Seevplus sends each event **once, with no retries**, and sends nothing for abandoned
+  checkouts. A missed webhook leaves the invoice open: the operator can use
+  `/platform` mark-paid, and a reconcile job calling `GET .../payments/{reference}`
+  (no auth) is a sensible follow-up.
+- No recurring billing and no refunds API: each renewal is a new invoice the church pays.
 
 ---
 
@@ -139,8 +155,8 @@ Reset the database from scratch (destroys all local data):
 
 - `backend/.env` is gitignored. Never copy values from the Living Spring `.env` or
   production `DATABASE_URL`.
-- Third-party keys (Cloudinary, SendGrid, Arkesel, Moolre) must be new dev keys,
-  or blank. Blank means the feature is disabled locally.
+- Third-party keys (Cloudinary, SendGrid, Arkesel, Seevplus) must be new dev keys,
+  or blank. SMS goes through Arkesel; Moolre support exists in the code but is not used. Blank means the feature is disabled locally.
 - `DATABASE_URL` may be written as `postgresql://...`; `config.py` normalises it to
   the `psycopg2` driver (SQLAlchemy 2.1 would otherwise pick the uninstalled
   `psycopg` v3).

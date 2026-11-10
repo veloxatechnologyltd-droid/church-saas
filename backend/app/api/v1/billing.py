@@ -187,7 +187,13 @@ async def webhook(provider: str, request: Request, db: Session = Depends(get_db)
     if invoice is not None:
         record.church_id = invoice.church_id
         if event.event_type == "payment.succeeded":
-            billing_service.apply_paid_invoice(db, invoice, provider_ref=event.provider_ref)
+            # Never grant a plan/credits for a payment that does not match the invoice.
+            if (event.amount is not None and event.amount != invoice.amount) or (
+                event.currency and event.currency != invoice.currency
+            ):
+                record.error = f"Amount mismatch: got {event.amount} {event.currency}, invoice is {invoice.amount} {invoice.currency}"
+            else:
+                billing_service.apply_paid_invoice(db, invoice, provider_ref=event.provider_ref)
         elif event.event_type == "payment.failed" and invoice.status == "open":
             invoice.status = "failed"
     else:

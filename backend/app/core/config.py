@@ -50,9 +50,13 @@ class Settings(BaseSettings):
     IMPERSONATION_MINUTES: int = 30
     # fake = test provider (checkout completes from a frontend page; NEVER in production),
     # manual = invoices paid offline and confirmed by a platform admin. The real
-    # Seevplus provider is blocked until its API documentation is available.
+    # seevplus = Seevplus hosted checkout (docs.seevcash.com). The API key decides sandbox vs live.
     BILLING_PROVIDER: str = "fake"
-    BILLING_WEBHOOK_SECRET: str = ""
+    BILLING_WEBHOOK_SECRET: str = ""  # Seevplus: the endpoint signing secret (shown once when created)
+    SEEVPLUS_API_KEY: str = ""
+    SEEVPLUS_BASE_URL: str = "https://api.seevplus.com"
+    # Seevplus requires a customer email; used when a church has none on file.
+    SEEVPLUS_FALLBACK_EMAIL: str = ""
     # Shown on open invoices when BILLING_PROVIDER=manual. {number} and {amount} are filled in.
     BILLING_MANUAL_INSTRUCTIONS: str = (
         "Pay {amount} by Mobile Money or bank transfer and use {number} as the reference. "

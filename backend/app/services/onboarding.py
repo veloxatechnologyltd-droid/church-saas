@@ -84,7 +84,7 @@ def create_church(
         name=name.strip(), slug=slug, status="trialing", plan=settings.TRIAL_PLAN,
         trial_ends_at=now + timedelta(days=settings.TRIAL_DAYS), country=country or "GH",
         timezone=timezone_name or "Africa/Accra", currency=currency or "GHS", phone=phone,
-        email=user.email, denomination=denomination, sms_sender_id=_default_sender_id(name),
+        email=user.email, denomination=denomination,
     )
     db.add(church)
     db.flush()
@@ -116,9 +116,3 @@ def create_church(
     if settings.SIGNUP_SMS_CREDITS:
         sms_credits.change_balance(db, church.id, settings.SIGNUP_SMS_CREDITS, "grant", reference="Welcome credits")
     return church, membership
-
-
-def _default_sender_id(name: str) -> str:
-    """Alphanumeric sender IDs are max 11 characters on Ghanaian networks."""
-    letters = re.sub(r"[^A-Za-z0-9]", "", name.title())
-    return (letters or "CHURCH")[:11]
