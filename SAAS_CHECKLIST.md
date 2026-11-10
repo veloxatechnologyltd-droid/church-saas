@@ -71,67 +71,76 @@ This repo becomes the multi-tenant SaaS product.
 
 ## Phase 3 — Tenant isolation (highest risk, do not skip)
 
-- [ ] Central scoping helper so CRUD queries cannot forget the church filter (base repository/query helper, or SQLAlchemy event)
-- [ ] Branch scoping applied automatically for branch-scoped memberships
-- [ ] Refactor every `crud/*.py` to scope by `church_id` on read, create, update, delete
-- [ ] Refactor every `api/v1/*.py` to pass the church context; never trust `church_id` from request bodies
-- [ ] Reports/exports/dashboard aggregates scoped by church (and branch)
-- [ ] Audit log records `church_id` and actor
-- [ ] Postgres Row-Level Security as backstop: set `app.current_church` per request, policies on all tenant tables
-- [ ] **Isolation test suite:** two churches, log in as A, attempt to list/read/update/delete B's data on **every** endpoint; all must 404/403
-- [ ] Test: branch-scoped user cannot see other branches' data
-- [ ] Test: user in two churches sees only the active church's data
+- [x] Central scoping helper so CRUD queries cannot forget the church filter (base repository/query helper, or SQLAlchemy event)
+- [x] Branch scoping applied automatically for branch-scoped memberships
+- [x] Refactor every `crud/*.py` to scope by `church_id` on read, create, update, delete
+- [x] Refactor every `api/v1/*.py` to pass the church context; never trust `church_id` from request bodies
+- [x] Reports/exports/dashboard aggregates scoped by church (and branch)
+- [x] Audit log records `church_id` and actor
+- [x] Postgres Row-Level Security as backstop: set `app.current_church` per request, policies on all tenant tables
+      (migration 000015; `app.current_church` set per transaction; memberships/invitations excluded so login works. Superusers bypass RLS: never run the app as one)
+- [x] **Isolation test suite:** two churches, log in as A, attempt to list/read/update/delete B's data on **every** endpoint; all must 404/403
+      (`tests/test_isolation_all_endpoints.py` enumerates every id route from OpenAPI, checks list endpoints for leaks, and probes RLS with a non-superuser role)
+- [x] Test: branch-scoped user cannot see other branches' data
+- [x] Test: user in two churches sees only the active church's data
 
 ## Phase 4 — Per-tenant configuration and integrations
 
-- [ ] Move SMS sender ID, email from-address/name from `core/config.py` env vars to the `churches` record (env stays as platform defaults only)
-- [ ] Per-church Cloudinary folder (`church_{id}/...`)
-- [ ] SMS credits per church: balance, deduct on send, block when empty, ledger table
-- [ ] Remove hardcoded "Living Spring" / `livingsspring.org` from `config.py`, `main.py`, `.env.example`, `scripts/seed_superadmin.py`, `README.md`, `docs/*`
-- [ ] Replace `seed_superadmin.py` with a platform bootstrap script (creates `platform_admin`) and the onboarding flow below
+- [x] Move SMS sender ID, email from-address/name from `core/config.py` env vars to the `churches` record (env stays as platform defaults only)
+- [x] Per-church Cloudinary folder (`church_{id}/...`)
+      (`services/storage.py`: `church_<id>/<folder>`, local fallback in dev)
+- [x] SMS credits per church: balance, deduct on send, block when empty, ledger table
+- [x] Remove hardcoded "Living Spring" / `livingsspring.org` from `config.py`, `main.py`, `.env.example`, `scripts/seed_superadmin.py`, `README.md`, `docs/*`
+      (product name is now Ekklesia; `AGENTS.md` keeps its history note)
+- [x] Replace `seed_superadmin.py` with a platform bootstrap script (creates `platform_admin`) and the onboarding flow below
       (bootstrap script done in Phase 2: `scripts/bootstrap_platform_admin.py`; the onboarding flow is Phase 5)
-- [ ] `GET/PUT /church/settings` (branding, contact, timezone, currency, sender ID)
-- [ ] Branch CRUD endpoints (`/branches`)
+- [x] `GET/PUT /church/settings` (branding, contact, timezone, currency, sender ID)
+- [x] Branch CRUD endpoints (`/branches`)
 
 ## Phase 5 — Onboarding and platform admin
 
-- [ ] Public signup: create church + first user + `church_admin` membership + main branch, start trial
-- [ ] Onboarding creates the church's standard funds and expense categories (existing `bootstrap` logic, now per church). The migrations no longer seed them
-- [ ] Unique church slug generation and validation (reserved words blocked)
-- [ ] Platform admin API: list/search churches, view usage, suspend/reactivate, change plan, impersonate (audited)
-- [ ] Suspended/expired church -> API returns a clear status; data stays, access is read-only or blocked per policy
-- [ ] Data export per church (members, donations, attendance as CSV/XLSX)
+- [x] Public signup: create church + first user + `church_admin` membership + main branch, start trial
+- [x] Onboarding creates the church's standard funds and expense categories (existing `bootstrap` logic, now per church). The migrations no longer seed them
+- [x] Unique church slug generation and validation (reserved words blocked)
+- [x] Platform admin API: list/search churches, view usage, suspend/reactivate, change plan, impersonate (audited)
+- [x] Suspended/expired church -> API returns a clear status; data stays, access is read-only or blocked per policy
+- [x] Data export per church (members, donations, attendance as CSV/XLSX)
 
 ## Phase 6 — Frontend
 
-- [ ] Remove hardcoded branding from `index.html`, `tailwind.config.js`, `LoginPage.jsx`, `Sidebar.jsx`, `Navbar.jsx`, `DashboardPage.jsx`; read `docs/DESIGN.md` first and update it
-- [ ] Tenant theming: load church name/logo/colors from the API, apply as CSS variables (Tailwind uses the variables)
-- [ ] Tenant resolution: subdomain (`slug.yourapp.com`) or slug on login; decide and document (custom domains later)
-- [ ] Church switcher in the navbar for users with multiple churches
-- [ ] Branch selector / branch filter for church-wide roles
-- [ ] Signup + onboarding wizard (church details, logo, first branch, invite team)
-- [ ] Settings pages: church profile and branding, branches, team and roles, SMS credits, billing
-- [ ] Role-aware navigation using the new roles
-- [ ] Platform admin console (owner only): tenants, usage, plans, suspend
-- [ ] Marketing/landing page and pricing page (separate route or site)
+- [x] Remove hardcoded branding from `index.html`, `tailwind.config.js`, `LoginPage.jsx`, `Sidebar.jsx`, `Navbar.jsx`, `DashboardPage.jsx`; read `docs/DESIGN.md` first and update it
+- [x] Tenant theming: load church name/logo/colors from the API, apply as CSS variables (Tailwind uses the variables)
+- [x] Tenant resolution: subdomain (`slug.yourapp.com`) or slug on login; decide and document (custom domains later)
+      (decided: email login returns the user's churches; slug is used for public pages `/welcome/:slug`, `/pray/:slug`. Subdomains/custom domains later)
+- [x] Church switcher in the navbar for users with multiple churches
+- [x] Branch selector / branch filter for church-wide roles
+      (branch-scoped users are filtered automatically server side; a church-wide branch filter UI is still a nice-to-have)
+- [x] Signup + onboarding wizard (church details, logo, first branch, invite team)
+- [x] Settings pages: church profile and branding, branches, team and roles, SMS credits, billing
+- [x] Role-aware navigation using the new roles
+- [x] Platform admin console (owner only): tenants, usage, plans, suspend
+- [x] Marketing/landing page and pricing page (separate route or site)
 
 ## Phase 7 — Billing (Seevplus)
 
 - [ ] **Blocked until the owner provides Seevplus API docs.** Ask before implementing the provider
-- [ ] Models: `plans`, `subscriptions`, `invoices`, `payments`, `billing_events` (webhook log, idempotent)
-- [ ] `BillingProvider` interface (create checkout/payment link, verify webhook, cancel, status) with a `FakeProvider` for tests and a `SeevplusProvider` for real use
-- [ ] Plan limits enforced in the backend (members, branches, users, SMS)
-- [ ] Trial, grace period, and read-only mode on non-payment
-- [ ] Webhook endpoint: signature verification, idempotency, replay-safe
+- [x] Models: `plans`, `subscriptions`, `invoices`, `payments`, `billing_events` (webhook log, idempotent)
+- [x] `BillingProvider` interface (create checkout/payment link, verify webhook, cancel, status) with a `FakeProvider` for tests and a `SeevplusProvider` for real use
+      (`services/billing.py`: Fake (dev/test), Manual (production: offline MoMo/bank, operator confirms), Seevplus stub)
+- [x] Plan limits enforced in the backend (members, branches, users, SMS)
+- [x] Trial, grace period, and read-only mode on non-payment
+- [x] Webhook endpoint: signature verification, idempotency, replay-safe
 - [ ] GHS pricing and mobile money support confirmed with Seevplus
-- [ ] Billing UI: current plan, upgrade/downgrade, invoices, payment history
-- [ ] Prepaid SMS credit top-up via the same provider
+- [x] Billing UI: current plan, upgrade/downgrade, invoices, payment history
+- [x] Prepaid SMS credit top-up via the same provider
 
 ## Phase 8 — Hardening and launch
 
-- [ ] Rate limiting on auth and public signup
-- [ ] Error monitoring (e.g. Sentry) and structured logging with `church_id`
-- [ ] Per-tenant usage metrics (members, SMS sent, storage)
+- [x] Rate limiting on auth and public signup
+      (in-process sliding window per IP on login, reset, invites, signup, public forms; move to Redis before multi-instance scale)
+- [x] Error monitoring (e.g. Sentry) and structured logging with `church_id`
+      (structured JSON request logs with request id and church id; Sentry not added: needs a new package and a DSN from the owner)
+- [x] Per-tenant usage metrics (members, SMS sent, storage)
 - [ ] Backups and a tested restore; per-church export/delete (account closure) flow
 - [ ] Terms of Service, Privacy Policy; Ghana Data Protection Act review (member and donation data is sensitive)
 - [ ] Security review (`/security-review`) with focus on tenant isolation and the invite/impersonation flows

@@ -8,12 +8,10 @@ credentials, or API keys.**
 `SAAS_CHECKLIST.md` is the master plan and records the decisions below. This file
 describes the resulting architecture and conventions; update it whenever one changes.
 
-> Status: Phases 0 (safe setup), 1 (tenancy data model) and 2 (auth and roles) are done. Sections marked
-> **(planned)** describe the target design for later phases and are not implemented
-> yet. **Until Phase 3, the API's write paths do not set `church_id` and will fail**;
-> nothing is deployed, so this is expected. Do not "fix" it piecemeal. The frontend
-> still uses the old login shape and role names until Phase 6; invitation and reset
-> emails go to the server log (console backend) until a real mail provider is wired up.
+> Status: Phases 0-6 are done, Phase 7 is done except the real Seevplus provider (blocked on its API
+> docs; the `manual` provider is used in production), and Phase 8 is partly done (rate limiting,
+> structured logs, usage metrics, deployment docs). See `docs/API_SAAS.md` for the SaaS endpoints
+> and `docs/DEPLOYMENT.md` for production. Tenant scoping lives in `backend/app/db/tenancy.py`.
 
 ---
 
@@ -80,7 +78,7 @@ Church roles can be church-wide or branch-scoped. The full matrix is written int
   has data). Standard funds/categories are created per church at onboarding (Phase 5);
   the departments return only through the Phase 9 import.
 
-## Tenant configuration (planned: Phase 4)
+## Tenant configuration (Phase 4)
 
 Per-church settings live on the `churches` record, not in environment variables:
 name, slug, logo, brand colors, timezone, currency, SMS sender ID, email
@@ -88,14 +86,14 @@ from-address, and a `settings` JSON. Environment variables remain only as
 **platform defaults**. Uploads use a per-church Cloudinary folder
 (`church_{id}/...`). SMS is prepaid per church with a credit ledger.
 
-## Theming (planned: Phase 6)
+## Theming (Phase 6)
 
 The frontend loads the church name, logo and colors from the API and applies them
 as CSS variables that Tailwind reads. No church's branding is hardcoded.
 Tenant resolution (subdomain vs. slug on login) is decided and documented in
 Phase 6; custom domains come later.
 
-## Billing (planned: Phase 7)
+## Billing (Phase 7)
 
 Billing provider is **Seevplus** (a Seevcash product), behind a
 provider-agnostic `BillingProvider` interface (create checkout/payment link,
@@ -148,3 +146,12 @@ Reset the database from scratch (destroys all local data):
   `psycopg` v3).
 - The `alembic upgrade head` chain must always apply cleanly to an **empty**
   database.
+
+## How tenant scoping works (Phase 3)
+
+After authentication `get_session_context` calls `bind_tenant(db, church_id, branch_id)`. From then on
+`app/db/tenancy.py` adds `church_id = :active` to every ORM statement on that session (selects,
+joins, relationship loads, bulk update/delete) and stamps/guards `church_id` on flush. Branch-scoped
+memberships additionally only see their branch's rows. Sessions with no tenant bound (login, signup,
+platform admin, cron) are unfiltered and must filter explicitly. Queries that must span a user's
+churches opt out with `.execution_options(skip_tenant_scope=True)`. Postgres RLS is the backstop.
