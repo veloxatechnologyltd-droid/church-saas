@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import CurrentUser, require_roles
+from app.core.dependencies import CurrentUser, require_admin_not_support, require_roles
 from app.db.database import get_db
 from app.models.church import Branch
 from app.models.membership import CHURCH_ROLES, Membership
@@ -60,7 +60,7 @@ def update_team_member(
     membership_id: UUID,
     payload: TeamUpdate,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_roles("church_admin")),
+    current_user: CurrentUser = Depends(require_admin_not_support),
 ):
     membership = db.query(Membership).filter(Membership.id == membership_id).first()
     if membership is None or (current_user.branch_id and membership.branch_id != current_user.branch_id):

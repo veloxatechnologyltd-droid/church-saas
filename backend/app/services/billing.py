@@ -86,9 +86,13 @@ class FakeProvider(BillingProvider):
         if not hmac.compare_digest(expected, signature):
             raise ValueError("Invalid webhook signature")
         data = json.loads(body or b"{}")
+        try:
+            amount = Decimal(str(data["amount"])) if data.get("amount") is not None else None
+        except ArithmeticError:
+            amount = None
         return WebhookEvent(
             event_id=str(data["id"]), event_type=str(data.get("type", "")),
-            provider_ref=data.get("provider_ref"), payload=data,
+            provider_ref=data.get("provider_ref"), payload=data, amount=amount, currency=data.get("currency"),
         )
 
     def cancel(self, subscription: Subscription) -> None:
@@ -253,6 +257,8 @@ def create_invoice(
 
 def apply_paid_invoice(db: Session, invoice: Invoice, method: str = "momo", provider_ref: str | None = None) -> bool:
     """Mark ``invoice`` paid and grant what it bought. Returns False if it was already paid."""
+    # Lock the row so two concurrent confirmations (operator + webhook) cannot both grant the plan.
+    db.refresh(invoice, with_for_update=True)
     if invoice.status == "paid":
         return False
     now = datetime.now(timezone.utc)

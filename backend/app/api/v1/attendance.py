@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import GROUP_ROLES, PEOPLE_ROLES, get_current_user, require_roles
 from app.crud import attendance as attendance_crud
 from app.db.database import get_db
 from app.core.config import settings
@@ -19,7 +19,7 @@ def list_sessions(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*GROUP_ROLES)),
 ):
     sessions, total = attendance_crud.list_sessions(db, skip=skip, limit=limit)
     data = [AttendanceSessionResponse.model_validate(s).model_dump() for s in sessions]
@@ -44,7 +44,7 @@ def create_session(
 def get_session(
     session_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*GROUP_ROLES)),
 ):
     session = attendance_crud.get_session(db, session_id)
     if not session:
@@ -107,7 +107,7 @@ def _checkin_payload(session) -> dict:
 def member_history(
     member_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*PEOPLE_ROLES)),
 ):
     from app.crud.member import get_member
 
@@ -127,7 +127,7 @@ def member_history(
 @router.get("/summary")
 def summary(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*GROUP_ROLES)),
 ):
     stats = attendance_crud.attendance_summary(db)
     return {"status": "success", "data": stats}

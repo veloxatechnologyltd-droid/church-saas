@@ -22,7 +22,7 @@ import {
   useExpensesMonthlyReport,
   useMembersGrowthReport,
 } from '../../hooks/useReports';
-import { useAuthStore } from '../../store/authStore';
+import { useAuthStore, useRole } from '../../store/authStore';
 import { formatCurrency } from '../../utils/formatters';
 import OutreachSnapshot from './OutreachSnapshot';
 
@@ -78,12 +78,48 @@ function ProgressBar({ label, value, max, color = 'bg-brand-700' }) {
   );
 }
 
+// Mirrors the server: finance trends for admin/finance/secretary, people trends for staff roles.
+const REPORT_ROLES = ['church_admin', 'finance', 'secretary'];
+
+/** A plain church member only gets a welcome and the upcoming events (the server withholds the rest). */
+function MemberHome() {
+  const { activeChurch } = useAuthStore();
+  const dashboardQuery = useDashboardReport();
+  const events = dashboardQuery.data?.data?.upcoming_event_list ?? [];
+  return (
+    <section className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-extrabold text-slate-900">{getGreeting()}</h1>
+        <p className="mt-1 text-sm text-slate-500">Welcome to {activeChurch?.name ?? 'your church'}.</p>
+      </div>
+      <div className="panel p-5">
+        <p className="font-bold text-slate-900">Upcoming events</p>
+        {dashboardQuery.isLoading ? <LoadingSpinner label="Loading…" /> : null}
+        {events.slice(0, 5).map((event) => (
+          <p key={event.id} className="mt-2 text-sm text-slate-700">
+            <span className="font-semibold">{event.title}</span>
+            {event.location ? <span className="text-slate-500"> · {event.location}</span> : null}
+          </p>
+        ))}
+        {!dashboardQuery.isLoading && !events.length && <p className="mt-2 text-sm text-slate-500">No upcoming events scheduled.</p>}
+        <Link to="/events" className="mt-3 inline-block text-sm font-semibold text-brand-700 underline">See all events</Link>
+      </div>
+    </section>
+  );
+}
+
 export default function DashboardPage() {
+  const role = useRole();
+  return role === 'member' ? <MemberHome /> : <StaffDashboard role={role} />;
+}
+
+function StaffDashboard({ role }) {
   const { user, activeChurch } = useAuthStore();
+  const canSeeReports = REPORT_ROLES.includes(role);
   const dashboardQuery = useDashboardReport();
   const attendanceTrendQuery = useAttendanceMonthlyReport();
-  const donationsTrendQuery = useDonationsMonthlyReport();
-  const expensesTrendQuery = useExpensesMonthlyReport();
+  const donationsTrendQuery = useDonationsMonthlyReport(canSeeReports);
+  const expensesTrendQuery = useExpensesMonthlyReport(canSeeReports);
   const membersTrendQuery = useMembersGrowthReport();
 
   const today = new Intl.DateTimeFormat('en-GH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date());
@@ -136,20 +172,20 @@ export default function DashboardPage() {
           helper={`${metrics.attendance_percentage ?? 0}% attendance rate`}
           icon={BarChart2}
         />
-        <StatCard
+        {canSeeReports && <StatCard
           label="Income (MTD)"
           value={formatCurrency(metrics.donations_this_month ?? 0)}
           helper="Month to date giving"
           tone="good"
           icon={TrendingUp}
-        />
-        <StatCard
+        />}
+        {canSeeReports && <StatCard
           label="Expenses (MTD)"
           value={formatCurrency(metrics.expenses_this_month ?? 0)}
           helper="Month to date spending"
           tone="warn"
           icon={TrendingDown}
-        />
+        />}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
@@ -230,8 +266,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Net flow hero card */}
-        <div className="panel overflow-hidden p-6">
+        {/* Net flow hero card (money: admin, finance and secretary only) */}
+        {canSeeReports && <div className="panel overflow-hidden p-6">
           <p className="label-caps mb-1">Monthly Finance Position</p>
           <h2 className="text-lg font-bold text-slate-900">Net cash flow for this month</h2>
           <div className="mt-5 grid grid-cols-2 gap-4">
@@ -254,14 +290,14 @@ export default function DashboardPage() {
               {formatCurrency(netFlow)}
             </p>
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* Trend charts row */}
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
         <TrendBars title="Monthly Attendance" data={attendanceTrend} color="bg-brand-700" />
-        <TrendBars title="Monthly Income" data={donationsTrend} color="bg-success-700" />
-        <TrendBars title="Monthly Expenses" data={expensesTrend} color="bg-accent-700" />
+        {canSeeReports && <TrendBars title="Monthly Income" data={donationsTrend} color="bg-success-700" />}
+        {canSeeReports && <TrendBars title="Monthly Expenses" data={expensesTrend} color="bg-accent-700" />}
         <TrendBars title="Member Growth" data={membersTrend} color="bg-church-700" />
       </div>
 

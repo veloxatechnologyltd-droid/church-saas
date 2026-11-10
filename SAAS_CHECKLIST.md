@@ -148,8 +148,8 @@ This repo becomes the multi-tenant SaaS product.
 - [ ] Backups and a tested restore (procedure documented in `docs/DEPLOYMENT.md`; **owner must run one restore test**)
 - [ ] Terms of Service, Privacy Policy; Ghana Data Protection Act review (member and donation data is sensitive)
       (drafts are live at `/terms` and `/privacy`, acceptance is required at signup and recorded; **a Ghanaian lawyer must review the text and the DPC registration is the owner's to do**)
-- [ ] Security review (`/security-review`) with focus on tenant isolation and the invite/impersonation flows
-      (a focused self-review fixed: a late payment could reopen a closed or suspended church, and invitations could be accepted into a closed church; an independent review is still advisable)
+- [x] Security review (`/security-review`) with focus on tenant isolation and the invite/impersonation flows
+      (done: own review plus an independent reviewer's report; every finding was fixed and has a regression test in `tests/test_closure.py::TestSecurityReviewFixes`; see `docs/AUTH.md` "Enforced access rules")
 - [ ] Staging environment separate from production
       (runbook in `docs/STAGING.md`; **the Neon branch and the two Vercel projects are for the owner to create**)
 - [ ] Pilot with 2-3 churches before public launch

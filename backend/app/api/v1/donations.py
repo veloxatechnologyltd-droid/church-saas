@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import FINANCE_ROLES, get_current_user, require_roles
 from app.crud import donation as donation_crud
 from app.db.database import get_db
 from app.schemas.donation import (
@@ -81,7 +81,7 @@ def create_donation(
 
 
 @router.get("/funds")
-def list_funds(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def list_funds(db: Session = Depends(get_db), current_user=Depends(require_roles(*FINANCE_ROLES))):
     rows = donation_crud.list_funds(db)
     return {"status": "success", "data": [DonationFundResponse.model_validate(row).model_dump() for row in rows]}
 
@@ -285,7 +285,7 @@ def create_expense(
 
 
 @router.get("/expense-categories")
-def list_expense_categories(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def list_expense_categories(db: Session = Depends(get_db), current_user=Depends(require_roles(*FINANCE_ROLES))):
     rows = donation_crud.list_expense_categories(db)
     return {"status": "success", "data": [ExpenseCategoryResponse.model_validate(row).model_dump() for row in rows]}
 

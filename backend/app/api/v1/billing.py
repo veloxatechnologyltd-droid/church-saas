@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.dependencies import CurrentUser, get_current_user, require_roles
+from app.core.dependencies import CurrentUser, get_current_user, require_church_wide_admin, require_roles
 from app.db.database import get_db
 from app.models.billing import BillingEvent, Invoice, Plan, SmsCreditEntry
 from app.services import billing as billing_service
@@ -62,7 +62,7 @@ def get_subscription(db: Session = Depends(get_db), current_user: CurrentUser = 
 def checkout(
     payload: CheckoutRequest,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_roles("church_admin")),
+    current_user: CurrentUser = Depends(require_church_wide_admin),
 ):
     church = current_user.church
     plan = db.query(Plan).filter(Plan.code == payload.plan_code, Plan.is_public.is_(True)).first()
@@ -107,14 +107,14 @@ def checkout(
 
 
 @router.get("/invoices")
-def list_invoices(db: Session = Depends(get_db), current_user: CurrentUser = Depends(require_roles("church_admin"))):
+def list_invoices(db: Session = Depends(get_db), current_user: CurrentUser = Depends(require_church_wide_admin)):
     rows = db.query(Invoice).order_by(Invoice.created_at.desc()).limit(100).all()
     return {"status": "success", "data": [billing_service.serialize_invoice(i) for i in rows], "total": len(rows)}
 
 
 @router.get("/invoices/{invoice_id}")
 def get_invoice(invoice_id: UUID, db: Session = Depends(get_db),
-                current_user: CurrentUser = Depends(require_roles("church_admin"))):
+                current_user: CurrentUser = Depends(require_church_wide_admin)):
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if invoice is None:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -122,7 +122,7 @@ def get_invoice(invoice_id: UUID, db: Session = Depends(get_db),
 
 
 @router.post("/cancel")
-def cancel(db: Session = Depends(get_db), current_user: CurrentUser = Depends(require_roles("church_admin"))):
+def cancel(db: Session = Depends(get_db), current_user: CurrentUser = Depends(require_church_wide_admin)):
     """Stop renewing. The church keeps its plan until the paid period ends, then becomes read-only."""
     from datetime import datetime, timezone
 
@@ -141,7 +141,7 @@ def cancel(db: Session = Depends(get_db), current_user: CurrentUser = Depends(re
 def fake_complete(
     invoice_id: UUID,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_roles("church_admin")),
+    current_user: CurrentUser = Depends(require_church_wide_admin),
 ):
     """Development/demo only: simulates the provider confirming payment."""
     if settings.BILLING_PROVIDER != "fake":
@@ -183,14 +183,12 @@ async def webhook(provider: str, request: Request, db: Session = Depends(get_db)
 
     invoice = None
     if event.provider_ref:
-        invoice = db.query(Invoice).filter(Invoice.provider_ref == event.provider_ref).first()
+        invoice = db.query(Invoice).filter(Invoice.provider_ref == event.provider_ref).with_for_update().first()
     if invoice is not None:
         record.church_id = invoice.church_id
         if event.event_type == "payment.succeeded":
             # Never grant a plan/credits for a payment that does not match the invoice.
-            if (event.amount is not None and event.amount != invoice.amount) or (
-                event.currency and event.currency != invoice.currency
-            ):
+            if event.amount is None or event.amount != invoice.amount or not event.currency or event.currency != invoice.currency:
                 record.error = f"Amount mismatch: got {event.amount} {event.currency}, invoice is {invoice.amount} {invoice.currency}"
             else:
                 billing_service.apply_paid_invoice(db, invoice, provider_ref=event.provider_ref)
@@ -232,7 +230,7 @@ def sms_packs():
 def purchase_pack(
     payload: PackPurchase,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_roles("church_admin")),
+    current_user: CurrentUser = Depends(require_church_wide_admin),
 ):
     pack = get_pack(payload.pack_code)
     if pack is None:

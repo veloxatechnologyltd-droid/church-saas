@@ -248,7 +248,12 @@ class TestAccept:
         old_hash = user.hashed_password
 
         invite(client, admin_token, role="finance")
-        response = accept(client, token_from(outbox), "ignored-new-password")
+        raw = token_from(outbox)
+        # Without the account's own password nothing happens (anti pre-hijack) and the link stays usable.
+        needs = accept(client, raw)
+        assert needs.status_code == 422 and needs.json()["detail"]["code"] == "existing_account"
+        assert accept(client, raw, "wrong-password-1").status_code == 400
+        response = accept(client, raw, "my-old-password")
 
         assert response.status_code == 200 and response.json()["data"]["account_created"] is False
         session.refresh(user)
@@ -257,16 +262,19 @@ class TestAccept:
         assert {c["slug"] for c in data["churches"]} == {"grace-chapel", "other-church"}
         assert login(client, "newbie@example.com", "ignored-new-password").status_code == 401
 
-    def test_existing_account_needs_no_password(self, client, session, outbox, admin_token):
-        make_user(session, "newbie@example.com")
+    def test_an_attacker_owned_account_cannot_inherit_the_invitation(self, client, session, outbox, church, admin_token):
+        """Someone registered the victim's email first with their own password. The victim, who
+        holds the emailed link but not that password, cannot attach the church to that account."""
+        attacker_account = make_user(session, "newbie@example.com", password="attacker-chosen-pw")
         invite(client, admin_token)
-        assert accept(client, token_from(outbox)).status_code == 200
+        assert accept(client, token_from(outbox), "victim-guess-1").status_code == 400
+        assert session.query(Membership).filter_by(user_id=attacker_account.id, church_id=church.id).count() == 0
 
     def test_a_previously_removed_member_is_reactivated_with_the_new_role(self, client, session, outbox, church, admin_token):
         user = make_user(session, "newbie@example.com")
         old = make_membership(session, church, user, "member", is_active=False)
         invite(client, admin_token, role="secretary")
-        assert accept(client, token_from(outbox)).status_code == 200
+        assert accept(client, token_from(outbox), "correct-horse-battery").status_code == 200
         session.refresh(old)
         assert old.is_active is True and old.role == "secretary"
         assert session.query(Membership).filter_by(user_id=user.id, church_id=church.id).count() == 1

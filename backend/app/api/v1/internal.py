@@ -19,7 +19,7 @@ router = APIRouter()
 
 def _require_cron(authorization: str | None = Header(default=None)) -> None:
     expected = f"Bearer {settings.CRON_SECRET}"
-    if not settings.CRON_SECRET or not authorization or not hmac.compare_digest(authorization, expected):
+    if not settings.CRON_SECRET or not authorization or not hmac.compare_digest(authorization.encode(), expected.encode()):
         raise HTTPException(status_code=404, detail="Not found")
 
 

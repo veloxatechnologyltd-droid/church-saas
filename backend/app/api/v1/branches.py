@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import CurrentUser, get_current_user, require_roles
+from app.core.dependencies import CurrentUser, get_current_user, require_church_wide_admin, require_roles
 from app.db.database import get_db
 from app.models.church import Branch
 from app.models.member import Member
@@ -70,7 +70,7 @@ def list_branches(db: Session = Depends(get_db), current_user: CurrentUser = Dep
 def create_branch(
     payload: BranchCreate,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_roles("church_admin")),
+    current_user: CurrentUser = Depends(require_church_wide_admin),
 ):
     if current_user.branch_id:
         raise HTTPException(status_code=403, detail="Only church-wide admins can add branches")
@@ -92,7 +92,7 @@ def update_branch(
     branch_id: UUID,
     payload: BranchUpdate,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_roles("church_admin")),
+    current_user: CurrentUser = Depends(require_church_wide_admin),
 ):
     branch = _get(db, branch_id)
     if current_user.branch_id and current_user.branch_id != branch.id:
@@ -117,7 +117,7 @@ def update_branch(
 def make_main(
     branch_id: UUID,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_roles("church_admin")),
+    current_user: CurrentUser = Depends(require_church_wide_admin),
 ):
     if current_user.branch_id:
         raise HTTPException(status_code=403, detail="Only church-wide admins can change the main branch")
@@ -139,7 +139,7 @@ def make_main(
 def deactivate_branch(
     branch_id: UUID,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_roles("church_admin")),
+    current_user: CurrentUser = Depends(require_church_wide_admin),
 ):
     if current_user.branch_id:
         raise HTTPException(status_code=403, detail="Only church-wide admins can remove branches")

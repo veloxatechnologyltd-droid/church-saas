@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import PEOPLE_ROLES, get_current_user, require_roles
 from app.crud import family as family_crud
 from app.db.database import get_db
 from app.schemas.family import FamilyCreate, FamilyResponse
@@ -21,7 +21,7 @@ def list_families(
     search: str | None = None,
     limit: int = Query(default=100, ge=1, le=200),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*PEOPLE_ROLES)),
 ):
     rows = family_crud.list_families(db, search=search, limit=limit)
     return {"status": "success", "data": [_serialize_family(family, member_count) for family, member_count in rows], "total": len(rows)}
@@ -46,7 +46,7 @@ def create_family(
 def get_family(
     family_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*PEOPLE_ROLES)),
 ):
     family = family_crud.get_family(db, family_id)
     if not family:

@@ -282,3 +282,128 @@ class TestFinancialArchive:
         session.query(FinancialArchive).update({"archived_at": datetime.now(timezone.utc) - timedelta(days=1)})
         session.flush()
         assert closure.purge_expired_archive(session) == 1
+
+
+class TestSecurityReviewFixes:
+    """Regressions for the independent security review."""
+
+    def _member_login(self, client, session, grace, role="member", branch=None, email="role@grace.test"):
+        from app.models import Member
+
+        church = session.get(Church, grace["church_id"])
+        clear_tenant(session)
+        user = make_user(session, email)
+        member = make_member(session, church, "Plain", "Member")
+        make_membership(session, church, user, role=role, member_id=member.id, branch_id=branch)
+        token = login(client, email).json()["data"]["access_token"]
+        return bearer(token), member
+
+    def test_plain_member_cannot_read_the_congregation_or_money(self, client, session, grace):
+        h, me = self._member_login(client, session, grace)
+        for path in ("/api/v1/members/", "/api/v1/families/", "/api/v1/attendance/summary", "/api/v1/attendance/sessions",
+                     "/api/v1/groups/", "/api/v1/donations/funds", "/api/v1/reports/donations/monthly",
+                     "/api/v1/reports/members/growth", "/api/v1/communication/reminders", "/api/v1/audit/"):
+            assert client.get(path, headers=h).status_code == 403, path
+        dash = client.get("/api/v1/reports/dashboard", headers=h).json()["data"]
+        assert set(dash) <= {"upcoming_events", "upcoming_event_list"}
+        assert client.get(f"/api/v1/members/{me.id}", headers=h).status_code == 200  # own profile still works
+        other = make_member(session, session.get(Church, grace["church_id"]), "Someone", "Else")
+        assert client.get(f"/api/v1/members/{other.id}", headers=h).status_code == 403
+        assert client.get(f"/api/v1/members/{other.id}/activity", headers=h).status_code == 403
+
+    def test_group_leader_sees_no_money_on_the_dashboard(self, client, session, grace):
+        h, _ = self._member_login(client, session, grace, role="group_leader", email="leader@grace.test")
+        dash = client.get("/api/v1/reports/dashboard", headers=h).json()["data"]
+        assert "donations_this_month" not in dash and "total_members" in dash
+        assert client.get("/api/v1/reports/donations/monthly", headers=h).status_code == 403
+
+    def test_branch_admin_cannot_do_church_wide_things(self, client, session, grace):
+        from tests.helpers import make_branch
+
+        church = session.get(Church, grace["church_id"])
+        clear_tenant(session)
+        branch = make_branch(session, church, "North")
+        h, _ = self._member_login(client, session, grace, role="church_admin", branch=branch.id, email="branch@grace.test")
+        assert client.put("/api/v1/church", json={"name": "Hijacked Name"}, headers=h).status_code == 403
+        assert client.post("/api/v1/billing/checkout", json={"plan_code": "growth"}, headers=h).status_code == 403
+        assert client.post("/api/v1/billing/cancel", headers=h).status_code == 403
+        assert client.post("/api/v1/sms-credits/purchase", json={"pack_code": "sms_2000"}, headers=h).status_code == 403
+        assert client.get("/api/v1/audit/", headers=h).status_code == 403
+        assert client.post("/api/v1/branches", json={"name": "Rogue"}, headers=h).status_code == 403
+        # The church-wide admin still can.
+        assert client.put("/api/v1/church", json={"name": "Grace Chapel Renamed"}, headers=grace["headers"]).status_code == 200
+
+    def test_support_session_cannot_plant_access_or_change_billing(self, client, session, grace):
+        make_user(session, "ops@platform.test", is_platform_admin=True)
+        ops = bearer(login(client, "ops@platform.test").json()["data"]["access_token"])
+        imp = bearer(client.post(f"/api/v1/platform/churches/{grace['church_id']}/impersonate", headers=ops).json()["data"]["access_token"])
+        assert client.post("/api/v1/invitations/", json={"email": "backdoor@evil.test", "role": "church_admin"}, headers=imp).status_code == 403
+        assert client.post("/api/v1/billing/checkout", json={"plan_code": "growth"}, headers=imp).status_code == 403
+        assert client.put("/api/v1/church", json={"name": "Support Edit"}, headers=imp).status_code == 403
+        assert client.get("/api/v1/members/", headers=imp).status_code == 200  # support can still look
+
+    def test_closing_a_church_kills_live_support_tokens(self, client, session, grace):
+        make_user(session, "ops@platform.test", is_platform_admin=True)
+        ops = bearer(login(client, "ops@platform.test").json()["data"]["access_token"])
+        imp = bearer(client.post(f"/api/v1/platform/churches/{grace['church_id']}/impersonate", headers=ops).json()["data"]["access_token"])
+        assert _close(client, grace).status_code == 200
+        assert client.get("/api/v1/members/", headers=imp).status_code == 401
+
+    def test_invitations_respect_the_user_limit_and_are_rate_limited(self, client, session, grace):
+        church = session.get(Church, grace["church_id"])
+        church.plan = "free"
+        church.status = "active"
+        session.flush()
+        # free plan: 2 users. The owner is one; one invite fits, the next (pending) one does not.
+        first = client.post("/api/v1/invitations/", json={"email": "one@grace.test", "role": "secretary"}, headers=grace["headers"])
+        assert first.status_code == 201, first.text
+        second = client.post("/api/v1/invitations/", json={"email": "two@grace.test", "role": "secretary"}, headers=grace["headers"])
+        assert second.status_code == 402 and second.json()["detail"]["limit"] == "users"
+
+    def test_purge_only_removes_the_purged_churchs_orphans(self, client, session, grace):
+        from app.models import User as U
+
+        _signup(client, "Faith Assembly", "kofi@faith.test")
+        clear_tenant(session)
+        stray = make_user(session, "stray@nowhere.test")  # a user with no church at all: not this purge's business
+        _close(client, grace)
+        church = session.get(Church, grace["church_id"])
+        church.purge_after = datetime.now(timezone.utc) - timedelta(minutes=1)
+        session.flush()
+        closure.purge_due(session)
+        emails = {u.email for u in session.query(U)}
+        assert "stray@nowhere.test" in emails and "akosua@grace.test" not in emails
+
+    def test_environment_guard_fails_closed(self):
+        import importlib
+
+        import app.main as main
+
+        for env in ("prod", "", "production-ish"):
+            settings.ENVIRONMENT = env
+            try:
+                with pytest.raises(RuntimeError):
+                    importlib.reload(main)
+            finally:
+                settings.ENVIRONMENT = "development"
+        importlib.reload(main)
+
+    def test_forwarded_for_uses_the_proxy_added_entry(self):
+        from starlette.requests import Request
+
+        from app.core.middleware import client_ip
+
+        def req(xff):
+            return Request({"type": "http", "headers": [(b"x-forwarded-for", xff.encode())], "client": ("9.9.9.9", 1)})
+
+        assert client_ip(req("6.6.6.6, 203.0.113.7")) == "203.0.113.7"  # spoofed left entry ignored
+        assert client_ip(req("203.0.113.7")) == "203.0.113.7"
+
+    def test_login_is_throttled_per_account_across_ips(self, client):
+        for i in range(10):
+            r = client.post("/api/v1/auth/login", json={"email": "victim@grace.test", "password": "wrong-pass-1"},
+                            headers={"X-Forwarded-For": f"10.0.0.{i}"})
+            assert r.status_code == 401
+        r = client.post("/api/v1/auth/login", json={"email": "victim@grace.test", "password": "wrong-pass-1"},
+                        headers={"X-Forwarded-For": "10.0.0.99"})
+        assert r.status_code == 429

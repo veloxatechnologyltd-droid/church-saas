@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, Up
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import PEOPLE_ROLES, get_current_user, require_roles
 from app.crud import attendance as attendance_crud
 from app.crud import donation as donation_crud
 from app.crud import member as member_crud
@@ -34,6 +34,12 @@ def _serialize_donation_activity(row) -> dict:
     return data
 
 
+def _own_profile_only_for_members(current_user, member_id: UUID) -> None:
+    """The `member` role sees only the profile linked to their own membership (docs/AUTH.md)."""
+    if current_user.role == "member" and current_user.member_id != member_id:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+
 @router.get("/")
 def list_members(
     skip: int = Query(default=0, ge=0),
@@ -42,7 +48,7 @@ def list_members(
     search: str | None = None,
     status_filter: str | None = Query(default=None, alias="status"),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*PEOPLE_ROLES)),
 ):
     members, total = member_crud.get_members(db, skip=skip, limit=limit, search=search, status=status_filter)
     low_map = member_crud.build_low_attendance_map(db, [m.id for m in members])
@@ -76,7 +82,7 @@ def create_member(
 def get_family_members(
     family_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*PEOPLE_ROLES)),
 ):
     if not member_crud.get_family(db, family_id):
         raise HTTPException(status_code=404, detail="Family not found")
@@ -105,8 +111,9 @@ def export_members(
 def get_member(
     member_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*PEOPLE_ROLES, "member")),
 ):
+    _own_profile_only_for_members(current_user, member_id)
     member = member_crud.get_member(db, member_id)
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
@@ -119,8 +126,9 @@ def get_member(
 def get_member_activity(
     member_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*PEOPLE_ROLES, "member")),
 ):
+    _own_profile_only_for_members(current_user, member_id)
     member = member_crud.get_member(db, member_id)
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")

@@ -127,7 +127,7 @@ def get_session_context(claims: dict = Depends(get_token_claims), db: Session = 
         if not user.is_platform_admin:
             raise _unauthorized()
         church = db.query(Church).filter(Church.id == church_id).first()
-        if church is None:
+        if church is None or church.status == "closed":
             raise _unauthorized()
         membership = Membership(user_id=user.id, church_id=church.id, role="church_admin")
         main_branch_id = db.query(Branch.id).filter(Branch.church_id == church.id, Branch.is_main.is_(True)).scalar()
@@ -214,6 +214,31 @@ def require_roles(*roles: str):
         return current_user
 
     return role_checker
+
+
+# Role groups, mirroring the frontend navigation (frontend/src/components/layout/navConfig.js).
+PEOPLE_ROLES = ("church_admin", "secretary", "group_leader", "finance")  # may browse the member directory
+GROUP_ROLES = ("church_admin", "secretary", "group_leader")  # attendance, departments, first-timers
+FINANCE_ROLES = ("church_admin", "finance")  # giving, expenses, pledges
+REPORT_ROLES = ("church_admin", "finance", "secretary")
+MESSAGING_ROLES = ("church_admin", "secretary")
+
+
+def require_church_wide_admin(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    """A church_admin who is NOT limited to one branch, and not a support (impersonation) session.
+
+    For church-wide actions: settings, billing, SMS credit purchases, the audit log."""
+    if current_user.role != "church_admin" or current_user.is_branch_scoped or current_user.impersonating:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    return current_user
+
+
+def require_admin_not_support(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    """church_admin, but never a support (impersonation) session. For actions that could leave
+    access behind: inviting people, changing roles, deactivating members."""
+    if current_user.role != "church_admin" or current_user.impersonating:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    return current_user
 
 
 def require_platform_admin(

@@ -35,9 +35,13 @@ def create_user(db: Session, *, email: str, password: str, is_platform_admin: bo
     return user
 
 
+_DUMMY_HASH = hash_password("not-a-real-password")
+
+
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
     user = get_user_by_email(db, email)
     if not user:
+        verify_password(password, _DUMMY_HASH)  # same work as a real check, so timing does not reveal the account
         return None
     if not verify_password(password, user.hashed_password):
         return None

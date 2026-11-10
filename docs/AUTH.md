@@ -155,3 +155,37 @@ Target flow: login -> if `active_church` is null show a church picker -> `switch
 as "sign in again", and read the active role from `data.user.role`. After
 `change-password`, store the returned `access_token`. Accept-invite and reset-password
 are pages that read `?token=` from the link.
+
+
+## Enforced access rules (server side, security review of 2026-11)
+
+The server mirrors the navigation in `frontend/src/components/layout/navConfig.js` through the role
+groups in `app/core/dependencies.py`:
+
+| Group | Roles | Guards |
+|---|---|---|
+| `PEOPLE_ROLES` | church_admin, secretary, group_leader, finance | member directory, families, a member's attendance history |
+| `GROUP_ROLES` | church_admin, secretary, group_leader | attendance sessions, departments' member lists, department SMS |
+| `FINANCE_ROLES` | church_admin, finance | funds, expense categories, giving |
+| `REPORT_ROLES` | church_admin, finance, secretary | monthly income/expense reports, money figures on the dashboard |
+| `MESSAGING_ROLES` | church_admin, secretary | reminder schedules |
+
+* A plain `member` can read **only their own profile and activity** (`GET /members/{own id}`) and a
+  dashboard that contains upcoming events only. Everything else returns 403.
+* `require_church_wide_admin`: church-wide `church_admin` only (not branch-scoped, not a support
+  session): church settings and logo, billing (checkout, cancel, invoices), SMS credit purchases,
+  branches, the audit log. A branch admin can still invite and manage people inside their branch.
+* `require_admin_not_support`: invitations and team changes are refused in a platform-admin
+  impersonation session, so support access can never leave a permanent backdoor. Support sessions can
+  look around, cannot close the church, and stop working the moment a church is closed.
+* Accepting an invitation onto an **existing account** requires that account's own password (stops
+  someone who registered a victim's email first from receiving the victim's invitation). New accounts
+  choose a password as before.
+* Prayer requests, pledge campaigns and the first-timer inbox carry no branch column, so they are
+  church-wide for the roles that may open them (a branch-scoped secretary sees all of them).
+* Public check-in answers with the member's first name when a phone number matches (needed for the
+  welcome message); it is rate-limited per IP.
+* Brute force: per-IP limits plus a per-account login limit (10 per 15 minutes). The client address is
+  the proxy-added `X-Forwarded-For` entry counted from the right (`TRUSTED_PROXY_HOPS`, default 1).
+* Production guards fail closed: `ENVIRONMENT` must be development, staging or production, and the
+  default `SECRET_KEY` is refused everywhere except development.

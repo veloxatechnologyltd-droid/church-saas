@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import verify_password
-from app.core.dependencies import CurrentUser, get_current_user, require_roles
+from app.core.dependencies import CurrentUser, get_current_user, require_church_wide_admin, require_roles
 from app.db.database import get_db
 from app.models.church import Church
 from app.services import closure
@@ -120,7 +120,7 @@ def get_church(current_user: CurrentUser = Depends(get_current_user)):
 def update_church(
     payload: ChurchUpdate,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_roles("church_admin")),
+    current_user: CurrentUser = Depends(require_church_wide_admin),
 ):
     church = current_user.church
     changes = payload.model_dump(exclude_unset=True)
@@ -139,7 +139,7 @@ def update_church(
 def upload_logo(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_roles("church_admin")),
+    current_user: CurrentUser = Depends(require_church_wide_admin),
 ):
     church = current_user.church
     church.logo_url = save_image(church.id, "branding", file)
@@ -153,7 +153,7 @@ def upload_logo(
 @router.post("/onboarding/complete")
 def complete_onboarding(
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_roles("church_admin")),
+    current_user: CurrentUser = Depends(require_church_wide_admin),
 ):
     church = current_user.church
     if church.onboarding_completed_at is None:

@@ -122,10 +122,15 @@ limiter = _Limiter()
 
 
 def client_ip(request: Request) -> str:
-    # Vercel/Render sit behind a proxy that sets X-Forwarded-For; the first entry is the client.
+    # Behind a proxy the client address is the entry the *proxy* added, i.e. counted from the
+    # right (Vercel overwrites the header so it has one entry; Render appends to a client-supplied
+    # value). The left-most entry is attacker-controlled, so never use it.
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        entries = [e.strip() for e in forwarded.split(",") if e.strip()]
+        hops = max(settings.TRUSTED_PROXY_HOPS, 1)
+        if entries:
+            return entries[-hops] if len(entries) >= hops else entries[0]
     return request.client.host if request.client else "unknown"
 
 

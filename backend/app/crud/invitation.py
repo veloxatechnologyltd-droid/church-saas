@@ -4,7 +4,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.core.security import generate_token, hash_password, hash_token
+from app.core.security import generate_token, hash_password, hash_token, verify_password
 from app.models.church import Branch, Church
 from app.models.invitation import Invitation
 from app.models.member import Member
@@ -19,6 +19,14 @@ class InvitationInvalid(Exception):
 
 class PasswordRequired(Exception):
     """The invited email has no account yet, so a password must be chosen."""
+
+
+class ExistingAccountPasswordRequired(Exception):
+    """The email already has an account: its owner must prove it with their current password."""
+
+
+class WrongPassword(Exception):
+    """The current password given for an existing account is wrong."""
 
 
 class AlreadyMember(Exception):
@@ -131,8 +139,9 @@ def accept(db: Session, raw_token: str, password: str | None) -> tuple[Invitatio
     """Redeem an invitation. Returns ``(invitation, account_was_created)``.
 
     The invitation row is locked, so two simultaneous redemptions cannot both succeed.
-    Possessing the token proves control of the invited mailbox, so an existing account is
-    simply given the membership (its password is untouched and no session is issued).
+    A new account is created with the chosen password. An existing account must present its
+    own current password; it then receives the membership (its password is untouched and no
+    session is issued).
     """
     now = _now()
     invitation = (
@@ -163,6 +172,14 @@ def accept(db: Session, raw_token: str, password: str | None) -> tuple[Invitatio
         created = True
     elif not user.is_active:
         raise InvitationInvalid()
+    else:
+        # An account for this email exists. Holding the emailed link proves control of the mailbox,
+        # but not of the account (someone else may have registered it first with their own password),
+        # so the account's own password is required before it receives this church's access.
+        if not password:
+            raise ExistingAccountPasswordRequired()
+        if not verify_password(password, user.hashed_password):
+            raise WrongPassword()
 
     membership = _membership(db, user.id, invitation.church_id)
     if membership is None:

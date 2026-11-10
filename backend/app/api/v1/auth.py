@@ -1,10 +1,11 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.dependencies import CurrentUser, get_session_context
+from app.core.middleware import limiter
 from app.core.security import create_access_token
 from app.crud import auth as auth_crud
 from app.db.database import get_db
@@ -103,6 +104,9 @@ def session_payload(db: Session, user: User, membership: Membership | None, chur
 
 @router.post("/login")
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    # Per-account throttle on top of the per-IP one: slows password guessing spread over many IPs.
+    if limiter.hit(f"login-account|{payload.email.strip().lower()}", 10, 900) is not None:
+        raise HTTPException(status_code=429, detail="Too many sign-in attempts for this account. Please wait a few minutes.")
     user = auth_crud.authenticate_user(db, payload.email, payload.password)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
@@ -193,25 +197,27 @@ _FORGOT_PASSWORD_REPLY = {
 }
 
 
+def _send_reset_email(sender: EmailSender, to: str, link: str) -> None:
+    try:
+        sender.send(password_reset_email(to=to, link=link, expires_minutes=settings.PASSWORD_RESET_EXPIRE_MINUTES))
+    except Exception:  # the reply must not depend on whether delivery worked
+        logger.exception("Could not send password reset email")
+
+
 @router.post("/forgot-password")
 def forgot_password(
     payload: ForgotPasswordRequest,
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     sender: EmailSender = Depends(get_email_sender),
 ):
-    """Always answers the same way, so it cannot be used to discover which emails have accounts."""
+    """Always answers the same way, and at the same speed (the email is sent after the response),
+    so it cannot be used to discover which emails have accounts."""
     created = auth_crud.request_password_reset(db, payload.email, settings.PASSWORD_RESET_EXPIRE_MINUTES)
     if created is not None:
         user, raw_token = created
         link = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/reset-password?token={raw_token}"
-        try:
-            sender.send(
-                password_reset_email(
-                    to=user.email, link=link, expires_minutes=settings.PASSWORD_RESET_EXPIRE_MINUTES
-                )
-            )
-        except Exception:  # the reply must not depend on whether delivery worked
-            logger.exception("Could not send password reset email")
+        background.add_task(_send_reset_email, sender, user.email, link)
     return _FORGOT_PASSWORD_REPLY
 
 

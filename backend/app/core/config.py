@@ -70,6 +70,8 @@ class Settings(BaseSettings):
         "Questions? Contact support."
     )
     RATE_LIMIT_ENABLED: bool = True
+    # Reverse proxies in front of the API that append to X-Forwarded-For (1 for Vercel or Render).
+    TRUSTED_PROXY_HOPS: int = 1
     # database = shared counters in Postgres (correct on serverless / several instances);
     # memory = per process (single dev server only).
     RATE_LIMIT_BACKEND: str = "database"

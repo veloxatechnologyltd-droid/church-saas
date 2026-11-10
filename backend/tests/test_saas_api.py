@@ -152,8 +152,15 @@ class TestBillingAndCredits:
         invoice = client.post("/api/v1/sms-credits/purchase", json={"pack_code": "sms_2000"}, headers=h).json()["data"]["invoice"]
         from app.models import Invoice
 
-        ref = session.get(Invoice, invoice["id"]).provider_ref
-        body = json.dumps({"id": "evt_1", "type": "payment.succeeded", "provider_ref": ref}).encode()
+        row = session.get(Invoice, invoice["id"])
+        ref = row.provider_ref
+        no_amount = json.dumps({"id": "evt_0", "type": "payment.succeeded", "provider_ref": ref}).encode()
+        sig0 = hmac.new(b"whsec", no_amount, hashlib.sha256).hexdigest()
+        # A success event that does not state amount and currency never grants anything.
+        client.post("/api/v1/billing/webhooks/fake", content=no_amount, headers={"X-Signature": sig0})
+        assert client.get("/api/v1/sms-credits", headers=h).json()["data"]["balance"] == settings.SIGNUP_SMS_CREDITS
+        body = json.dumps({"id": "evt_1", "type": "payment.succeeded", "provider_ref": ref,
+                           "amount": float(row.amount), "currency": row.currency}).encode()
         sig = hmac.new(b"whsec", body, hashlib.sha256).hexdigest()
         bad = client.post("/api/v1/billing/webhooks/fake", content=body, headers={"X-Signature": "nope"})
         assert bad.status_code == 400

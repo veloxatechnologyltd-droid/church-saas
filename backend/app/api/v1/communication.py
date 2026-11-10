@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import GROUP_ROLES, MESSAGING_ROLES, get_current_user, require_roles
 from app.core.config import settings
 from app.crud import communication as communication_crud
 from app.crud import announcement as announcement_crud
@@ -99,7 +99,7 @@ def _validate_audience_scope(payload, current_user, db: Session) -> None:
 def send_bulk_sms(
     payload: SMSCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*GROUP_ROLES)),
 ):
     _validate_audience_scope(payload, current_user, db)
     try:
@@ -125,7 +125,7 @@ def communication_history(
 def list_reminders(
     include_inactive: bool = Query(default=False),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*MESSAGING_ROLES)),
 ):
     schedules = communication_crud.list_schedules(
         db,
@@ -140,7 +140,7 @@ def list_reminders(
 def create_reminder(
     payload: ReminderScheduleCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*MESSAGING_ROLES)),
 ):
     if current_user.role not in {"church_admin", "secretary", "group_leader"}:
         raise HTTPException(status_code=403, detail="You do not have permission to create reminders")
@@ -163,7 +163,7 @@ def update_reminder(
     schedule_id: UUID,
     payload: ReminderScheduleUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*MESSAGING_ROLES)),
 ):
     if current_user.role not in {"church_admin", "secretary", "group_leader"}:
         raise HTTPException(status_code=403, detail="You do not have permission to update reminders")
@@ -193,7 +193,7 @@ def update_reminder(
 def delete_reminder(
     schedule_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*MESSAGING_ROLES)),
 ):
     schedule = communication_crud.get_schedule(db, schedule_id)
     if not schedule:

@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import require_roles
+from app.core.dependencies import require_church_wide_admin, require_roles
 from app.db.database import get_db
 from app.models.audit import AuditLog
 
@@ -16,7 +16,7 @@ def list_audit_logs(
     action: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("church_admin")),
+    current_user=Depends(require_church_wide_admin),
 ):
     query = db.query(AuditLog)
     if table_name:

@@ -5,44 +5,53 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import PEOPLE_ROLES, REPORT_ROLES, require_roles
 from app.crud import reports as reports_crud
 from app.crud import donation as donation_crud
 from app.crud import member as member_crud
 from app.db.database import get_db
-from app.core.dependencies import require_roles
 from app.models.donation import Donation
 
 router = APIRouter()
 
 
+# Money figures on the dashboard are for the roles that can open Reports (admin, finance, secretary).
+_MONEY_KEYS = ("donations_this_month", "donations_this_year", "expenses_this_month", "expenses_this_year", "net_flow_this_month")
+# A plain church member only gets what is public inside the church: upcoming events.
+_MEMBER_DASHBOARD_KEYS = ("upcoming_events", "upcoming_event_list")
+
+
 @router.get("/dashboard")
-def dashboard(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def dashboard(db: Session = Depends(get_db), current_user=Depends(require_roles(*PEOPLE_ROLES, "member"))):
     pastoral_assigned_to = current_user.id if current_user.role == "group_leader" else None
     data = reports_crud.get_dashboard_stats(db, pastoral_assigned_to=pastoral_assigned_to)
+    if current_user.role == "member":
+        data = {key: data[key] for key in _MEMBER_DASHBOARD_KEYS if key in data}
+    elif current_user.role not in REPORT_ROLES:
+        data = {key: value for key, value in data.items() if key not in _MONEY_KEYS}
     return {"status": "success", "data": data}
 
 
 @router.get("/attendance/monthly")
-def attendance_monthly(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def attendance_monthly(db: Session = Depends(get_db), current_user=Depends(require_roles(*PEOPLE_ROLES))):
     data = reports_crud.get_attendance_monthly(db, months=6)
     return {"status": "success", "data": data}
 
 
 @router.get("/donations/monthly")
-def donations_monthly(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def donations_monthly(db: Session = Depends(get_db), current_user=Depends(require_roles(*REPORT_ROLES))):
     data = reports_crud.get_donations_monthly(db, months=6)
     return {"status": "success", "data": data}
 
 
 @router.get("/expenses/monthly")
-def expenses_monthly(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def expenses_monthly(db: Session = Depends(get_db), current_user=Depends(require_roles(*REPORT_ROLES))):
     data = reports_crud.get_expenses_monthly(db, months=6)
     return {"status": "success", "data": data}
 
 
 @router.get("/members/growth")
-def members_growth(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def members_growth(db: Session = Depends(get_db), current_user=Depends(require_roles(*PEOPLE_ROLES))):
     data = reports_crud.get_members_growth(db, months=6)
     return {"status": "success", "data": data}
 

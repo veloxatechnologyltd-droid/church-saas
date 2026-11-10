@@ -40,8 +40,13 @@ try:
 except OSError:
     _uploads_available = False
 
-if settings.ENVIRONMENT == "production" and settings.SECRET_KEY in ("change-this-secret", "change-this-to-a-long-random-secret"):
-    raise RuntimeError("SECRET_KEY must be set to a long random value in production")
+# Guards are fail-closed: the insecure defaults are allowed only in an explicit development
+# (or, for the fake billing provider, staging) environment, so a typo such as ENVIRONMENT=prod
+# or an unset value can never leave a forgeable SECRET_KEY or the fake provider in place.
+if settings.ENVIRONMENT not in ("development", "staging", "production"):
+    raise RuntimeError(f"ENVIRONMENT must be development, staging or production (got {settings.ENVIRONMENT!r})")
+if settings.ENVIRONMENT != "development" and settings.SECRET_KEY in ("change-this-secret", "change-this-to-a-long-random-secret"):
+    raise RuntimeError("SECRET_KEY must be set to a long random value outside development")
 if settings.ENVIRONMENT == "production" and settings.BILLING_PROVIDER == "fake":
     raise RuntimeError("BILLING_PROVIDER=fake lets anyone mark invoices paid; use 'manual' (or a real provider) in production")
 

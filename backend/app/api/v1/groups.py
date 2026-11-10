@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import GROUP_ROLES, PEOPLE_ROLES, get_current_user, require_roles
 from app.crud import group as group_crud
 from app.db.database import get_db
 from app.models.member import Member
@@ -46,7 +46,7 @@ def _serialize_group(db: Session, group) -> dict:
 def list_groups(
     include_inactive: bool = Query(default=False),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*PEOPLE_ROLES)),
 ):
     groups = group_crud.list_groups(db, include_inactive=include_inactive and current_user.role == "church_admin")
     return {"status": "success", "data": [_serialize_group(db, group) for group in groups], "total": len(groups)}
@@ -69,7 +69,7 @@ def create_group(
 
 
 @router.get("/{group_id}")
-def get_group(group_id: UUID, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def get_group(group_id: UUID, db: Session = Depends(get_db), current_user=Depends(require_roles(*PEOPLE_ROLES))):
     group = group_crud.get_group(db, group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Department not found")
@@ -110,7 +110,7 @@ def delete_group(
 
 
 @router.get("/{group_id}/members")
-def list_group_members(group_id: UUID, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def list_group_members(group_id: UUID, db: Session = Depends(get_db), current_user=Depends(require_roles(*GROUP_ROLES))):
     group = group_crud.get_group(db, group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Department not found")
@@ -133,7 +133,7 @@ def add_group_member(
     group_id: UUID,
     payload: GroupMemberCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*GROUP_ROLES)),
 ):
     group = group_crud.get_group(db, group_id)
     if not group:
@@ -160,7 +160,7 @@ def remove_group_member(
     group_id: UUID,
     member_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_roles(*GROUP_ROLES)),
 ):
     group = group_crud.get_group(db, group_id)
     if not group:

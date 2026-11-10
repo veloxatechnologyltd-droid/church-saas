@@ -8,7 +8,8 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.dependencies import CurrentUser, require_roles
+from app.core.middleware import limiter
+from app.core.dependencies import CurrentUser, require_admin_not_support, require_roles
 from app.crud import invitation as invitation_crud
 from app.db.database import get_db
 from app.models.church import Church
@@ -58,8 +59,18 @@ def create_invitation(
     payload: InvitationCreate,
     db: Session = Depends(get_db),
     sender: EmailSender = Depends(get_email_sender),
-    current_user: CurrentUser = Depends(require_roles("church_admin")),
+    current_user: CurrentUser = Depends(require_admin_not_support),
 ):
+    # Invitations send email from our domain with a church-chosen name: cap how many a church can send.
+    if limiter.hit(f"invite|{current_user.church_id}", 30, 3600) is not None:
+        raise HTTPException(status_code=429, detail="Too many invitations sent. Please try again later.")
+    from app.services.plans import PlanLimitError, enforce_limit
+
+    try:  # pending invitations will become users, so count them against the plan too
+        pending = len(invitation_crud.list_pending(db, current_user.church_id))
+        enforce_limit(db, current_user.church, "users", adding=pending + 1)
+    except PlanLimitError as exc:
+        raise HTTPException(status_code=402, detail={"code": "plan_limit", "limit": "users", "message": str(exc)})
     branch_id = payload.branch_id
     if current_user.is_branch_scoped:  # a branch admin can only bring people into their own branch
         if branch_id is None:
@@ -129,7 +140,7 @@ def list_invitations(
 def revoke_invitation(
     invitation_id: UUID,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_roles("church_admin")),
+    current_user: CurrentUser = Depends(require_admin_not_support),
 ):
     row = invitation_crud.get_pending(db, current_user.church_id, invitation_id)
     if row is None or (current_user.is_branch_scoped and row.branch_id != current_user.branch_id):
@@ -156,6 +167,13 @@ def accept_invitation(payload: InvitationAccept, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="This invitation is invalid or has expired")
     except invitation_crud.PasswordRequired:
         raise HTTPException(status_code=422, detail="Choose a password to create your account")
+    except invitation_crud.ExistingAccountPasswordRequired:
+        raise HTTPException(status_code=422, detail={
+            "code": "existing_account",
+            "message": "You already have an account with this email. Enter your current password to join.",
+        })
+    except invitation_crud.WrongPassword:
+        raise HTTPException(status_code=400, detail="Incorrect password")
 
     church = db.query(Church).filter(Church.id == invitation.church_id).first()
     return {

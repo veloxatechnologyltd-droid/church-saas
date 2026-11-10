@@ -77,6 +77,10 @@ def purge_church(db: Session, church_id: UUID) -> dict:
     # Keep the accounting record of money received (no members, no personal data).
     summary["invoices_archived"] = _archive_paid_invoices(db, church)
 
+    # Remember who belonged to this church BEFORE its memberships are deleted: only these users
+    # can become orphans from this purge (never sweep the whole users table).
+    member_user_ids = list(db.execute(select(Membership.user_id).where(Membership.church_id == church_id)).scalars())
+
     # Children before parents: reverse FK order over every table that has a church_id.
     deleted_rows = 0
     for table in reversed(Base.metadata.sorted_tables):
@@ -88,6 +92,7 @@ def purge_church(db: Session, church_id: UUID) -> dict:
     # Users that belonged only to this church have nothing left: erase them too.
     # Platform admins are operators, not church data, so they stay.
     orphans = select(User.id).where(
+        User.id.in_(member_user_ids),
         ~select(Membership.id).where(Membership.user_id == User.id).exists(),
         User.is_platform_admin.is_(False),
     )
