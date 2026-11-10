@@ -13,12 +13,14 @@ from app.core.middleware import RateLimitMiddleware, RequestLogMiddleware, Secur
 from app.db.tenancy import TenantViolation
 from app.services.billing import BillingProviderError
 from app.core.config import settings
+from app.core.monitoring import init_monitoring
 from app.core.readiness import production_warnings
 from app.db.database import check_database_connection
 
 logger = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+init_monitoring()  # no-op unless SENTRY_DSN is set
 
 app = FastAPI(
     title=f"{settings.PRODUCT_NAME} API",

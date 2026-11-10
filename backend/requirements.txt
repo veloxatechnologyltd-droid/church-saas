@@ -15,3 +15,4 @@ httpx
 pandas
 openpyxl
 python-dotenv
+sentry-sdk

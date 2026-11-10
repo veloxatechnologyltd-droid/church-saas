@@ -78,6 +78,9 @@ class Settings(BaseSettings):
     # How late a reminder may still be sent (lets an hourly/daily cron catch up).
     REMINDER_CATCHUP_MINUTES: int = 180
     LOG_JSON: bool = False
+    # Error monitoring (optional). Empty = off. Events never include request bodies or personal data.
+    SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

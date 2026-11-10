@@ -141,7 +141,7 @@ This repo becomes the multi-tenant SaaS product.
 - [x] Rate limiting on auth and public signup
       (fixed-window counters per IP in Postgres, shared by every serverless instance: login, reset, invites, signup, public forms)
 - [x] Error monitoring (e.g. Sentry) and structured logging with `church_id`
-      (structured JSON request logs with request id and church id; Sentry not added: needs a new package and a DSN from the owner)
+      (structured JSON request logs with request id and church id; Sentry integrated and privacy-scrubbed, **active once the owner sets `SENTRY_DSN`**)
 - [x] Per-tenant usage metrics (members, SMS sent, storage)
 - [x] Per-church export/delete (account closure) flow
       (admin closes the account, 30-day grace, scheduled permanent purge; platform admin can reopen; see `docs/DEPLOYMENT.md`)

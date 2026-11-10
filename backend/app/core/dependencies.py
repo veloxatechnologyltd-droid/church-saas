@@ -20,6 +20,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
+from app.core import monitoring
 from app.core.security import decode_token
 from app.db.database import get_db
 from app.db.tenancy import bind_tenant, clear_tenant
@@ -157,6 +158,7 @@ def get_session_context(claims: dict = Depends(get_token_claims), db: Session = 
     # From here on every ORM query on this session is limited to this church (and
     # branch, for branch-scoped memberships). See app/db/tenancy.py.
     bind_tenant(db, church.id, branch_id=membership.branch_id, default_branch_id=main_branch_id)
+    monitoring.tag(church_id=church.id)
     return CurrentUser(user=user, membership=membership, church=church)
 
 

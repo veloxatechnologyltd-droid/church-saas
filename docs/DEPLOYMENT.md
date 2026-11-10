@@ -39,6 +39,7 @@ API (`ekklesia-api`, Production):
 | `LEGAL_VERSION` | version stamp stored with each signup's acceptance of the Terms/Privacy text |
 | `CRON_SECRET` | random (set) |
 | `LOG_JSON` | `true` |
+| `SENTRY_DSN` | optional; enables Sentry error reports (no request bodies, cookies, auth headers or user details are sent; events are tagged with opaque `church_id` and `request_id`) |
 | `CLOUDINARY_*` | required for uploads |
 
 Frontend (`ekklesia-church`): `VITE_API_BASE_URL=https://ekklesia-api.vercel.app/api/v1` and `VITE_SUPPORT_EMAIL` (the contact address printed on the Terms and Privacy pages).

@@ -21,6 +21,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from app.core import monitoring
 from app.core.config import settings
 
 logger = logging.getLogger("app.request")
@@ -151,6 +152,7 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:16]
         request.state.request_id = request_id
+        monitoring.tag(request_id=request_id)
         start = time.perf_counter()
         try:
             response = await call_next(request)

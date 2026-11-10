@@ -27,6 +27,8 @@ def readiness_checks() -> list[dict]:
          "detail": "Set CRON_SECRET so scheduled jobs (SMS reminders, purging closed churches) can run."},
         {"key": "rate_limit", "ok": settings.RATE_LIMIT_ENABLED and settings.RATE_LIMIT_BACKEND == "database",
          "required": True, "detail": "Keep RATE_LIMIT_ENABLED=true and RATE_LIMIT_BACKEND=database in production."},
+        {"key": "monitoring", "ok": bool(settings.SENTRY_DSN), "required": False,
+         "detail": "Optional: set SENTRY_DSN to receive error reports (no request bodies or personal data are sent)."},
         {"key": "cors", "ok": "localhost" not in settings.CORS_ORIGINS and "127.0.0.1" not in settings.CORS_ORIGINS,
          "required": True, "detail": "CORS_ORIGINS must list only your real frontend origin(s)."},
     ]
