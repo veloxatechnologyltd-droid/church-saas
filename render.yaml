@@ -1,43 +1,33 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
-# Deploy: Dashboard → New → Blueprint → connect this repo (or paste this file).
 #
-# After first deploy:
-# 1. Set DATABASE_URL to a NEW database created for this product (never the original
-#    Living Spring database). Render PostgreSQL or a new Supabase project.
-# 2. Set SECRET_KEY (long random string).
-# 3. Set CORS_ORIGINS to your Vercel URL(s), comma-separated, e.g.:
-#    https://<new-frontend>.vercel.app,https://<new-frontend>-git-main-<team>.vercel.app
-# 4. Run migrations if preDeployCommand did not run: render shell → cd backend → alembic upgrade head
+# Production layout:   backend (this file) on Render   +   frontend on Vercel   +   Postgres on Neon.
+#
+# Deploy: Dashboard -> New -> Blueprint -> connect this repo. Render creates the API web service,
+# two cron jobs and one shared environment group, then asks for every `sync: false` value.
+# The step-by-step is in docs/DEPLOYMENT.md ("Backend on Render").
+#
+# Notes
+# * The web service runs gunicorn with uvicorn workers. `plan: starter` is the smallest plan that
+#   never sleeps; the free plan spins down when idle (slow first request, missed reminders).
+# * Migrations run in preDeployCommand before traffic switches to a new release.
+# * Region frankfurt sits next to the Neon database in eu-central-1.
+# * The disk is ephemeral: uploads need Cloudinary (CLOUDINARY_*).
+# * Change `branch` below to `main` once saas-conversion is merged.
 
-services:
-  - type: web
-    name: church-saas-api
-    runtime: python
-    region: frankfurt
-    plan: free
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    # Migrations before traffic switches to new release (requires DB env vars on Render)
-    preDeployCommand: alembic upgrade head
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /health
+envVarGroups:
+  # Shared by the web service and both cron jobs, so each secret is entered once.
+  - name: ekklesia-shared
     envVars:
+      - key: ENVIRONMENT
+        value: production
       - key: PYTHON_VERSION
-        value: "3.11.9"
-      - key: DATABASE_URL
+        value: "3.12.7"
+      - key: DATABASE_URL            # Neon connection string (never the old Living Spring database)
         sync: false
       - key: SECRET_KEY
-        sync: false
-      - key: CORS_ORIGINS
-        sync: false
-      - key: FRONTEND_BASE_URL
-        sync: false
-      - key: EMAIL_BACKEND
-        value: console
-      - key: ALGORITHM
-        value: HS256
-      - key: ACCESS_TOKEN_EXPIRE_MINUTES
-        value: "60"
+        generateValue: true
+      - key: LOG_JSON
+        value: "true"
       - key: SMS_PROVIDER
         value: arkesel
       - key: ARKESEL_API_KEY
@@ -46,42 +36,82 @@ services:
         value: CHURCH
       - key: ARKESEL_BASE_URL
         value: https://sms.arkesel.com
-      - key: MOOLRE_VAS_KEY
+      - key: CLOUDINARY_CLOUD_NAME
         sync: false
-      - key: MOOLRE_SENDER_ID
-        value: CHURCH
-      - key: MOOLRE_BASE_URL
-        value: https://api.moolre.com
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
 
-  # Render cron jobs run in UTC. The reminder worker converts each schedule
-  # to its configured timezone (Africa/Accra by default) before sending.
-  # Cron jobs require a paid Render plan; use an external cron service if
-  # you prefer to keep the web service on the free plan.
-  - type: cron
-    name: church-saas-reminders
+services:
+  - type: web
+    name: ekklesia-api
     runtime: python
     region: frankfurt
     plan: starter
+    branch: saas-conversion
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    preDeployCommand: alembic upgrade head
+    startCommand: gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w 2 -b 0.0.0.0:$PORT --timeout 60 --access-logfile -
+    healthCheckPath: /health/db
+    envVars:
+      - fromGroup: ekklesia-shared
+      - key: CORS_ORIGINS            # https://ekklesia-church.vercel.app (+ custom domain)
+        sync: false
+      - key: FRONTEND_BASE_URL       # same URL: links in emails point here
+        sync: false
+      - key: CRON_SECRET
+        generateValue: true
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: RATE_LIMIT_BACKEND
+        value: database
+      - key: TRUSTED_PROXY_HOPS      # Render's load balancer appends the client address: 1 hop
+        value: "1"
+      - key: EMAIL_BACKEND
+        value: sendgrid
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: FROM_EMAIL              # a sender verified in SendGrid
+        sync: false
+      - key: FROM_NAME
+        value: Ekklesia
+      - key: BILLING_PROVIDER        # manual until live Seevplus keys exist; then: seevplus
+        value: manual
+      - key: SEEVPLUS_API_KEY
+        sync: false
+      - key: BILLING_WEBHOOK_SECRET
+        sync: false
+      - key: SENTRY_DSN              # optional error monitoring
+        sync: false
+
+  # Render cron jobs run in UTC. The reminder worker converts each schedule to its configured
+  # timezone (Africa/Accra by default) before sending; the unique constraint on reminder_runs makes
+  # repeated runs safe.
+  - type: cron
+    name: ekklesia-reminders
+    runtime: python
+    region: frankfurt
+    plan: starter
+    branch: saas-conversion
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: python scripts/run_reminders.py
     schedule: "*/10 * * * *"
     envVars:
-      - key: PYTHON_VERSION
-        value: "3.11.9"
-      - key: DATABASE_URL
-        sync: false
-      - key: SMS_PROVIDER
-        value: arkesel
-      - key: ARKESEL_API_KEY
-        sync: false
-      - key: ARKESEL_SENDER_ID
-        value: CHURCH
-      - key: ARKESEL_BASE_URL
-        value: https://sms.arkesel.com
-      - key: MOOLRE_VAS_KEY
-        sync: false
-      - key: MOOLRE_SENDER_ID
-        value: CHURCH
-      - key: MOOLRE_BASE_URL
-        value: https://api.moolre.com
+      - fromGroup: ekklesia-shared
+
+  # Permanent deletion of churches whose 30-day closure grace period has ended.
+  - type: cron
+    name: ekklesia-purge-closed
+    runtime: python
+    region: frankfurt
+    plan: starter
+    branch: saas-conversion
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/purge_closed.py
+    schedule: "30 3 * * *"
+    envVars:
+      - fromGroup: ekklesia-shared

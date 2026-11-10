@@ -150,6 +150,7 @@ This repo becomes the multi-tenant SaaS product.
       (drafts are live at `/terms` and `/privacy`, acceptance is required at signup and recorded; **a Ghanaian lawyer must review the text and the DPC registration is the owner's to do**)
 - [x] Security review (`/security-review`) with focus on tenant isolation and the invite/impersonation flows
       (done: own review plus an independent reviewer's report; every finding was fixed and has a regression test in `tests/test_closure.py::TestSecurityReviewFixes`; see `docs/AUTH.md` "Enforced access rules")
+- [x] Render Blueprint for the API and cron jobs (`render.yaml`), frontend stays on Vercel (`docs/DEPLOYMENT.md`)
 - [ ] Staging environment separate from production
       (runbook in `docs/STAGING.md`; **the Neon branch and the two Vercel projects are for the owner to create**)
 - [ ] Pilot with 2-3 churches before public launch
