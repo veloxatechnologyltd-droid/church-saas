@@ -92,7 +92,7 @@ This repo becomes the multi-tenant SaaS product.
       (`services/storage.py`: `church_<id>/<folder>`, local fallback in dev)
 - [x] SMS credits per church: balance, deduct on send, block when empty, ledger table
 - [x] Remove hardcoded "Living Spring" / `livingsspring.org` from `config.py`, `main.py`, `.env.example`, `scripts/seed_superadmin.py`, `README.md`, `docs/*`
-      (product name is now Ekklesia; `AGENTS.md` keeps its history note)
+      (product name is now Asafo (renamed from Ekklesia); `AGENTS.md` keeps its history note)
 - [x] Replace `seed_superadmin.py` with a platform bootstrap script (creates `platform_admin`) and the onboarding flow below
       (bootstrap script done in Phase 2: `scripts/bootstrap_platform_admin.py`; the onboarding flow is Phase 5)
 - [x] `GET/PUT /church/settings` (branding, contact, timezone, currency, sender ID)

@@ -1,7 +1,7 @@
 # OVERVIEW.md — Project Overview & Conventions
 
 ## Project
-**Ekklesia — multi-tenant church management SaaS** (forked from the Living Spring CMS)
+**Asafo — multi-tenant church management SaaS** (forked from the Living Spring CMS)
 Developer: John Evans Okyere | Accra, Ghana | 2026
 
 A web-based church management platform for managing members, attendance, finance, groups, events, and communication.

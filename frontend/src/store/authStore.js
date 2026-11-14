@@ -65,7 +65,7 @@ export const useAuthStore = create(
       logout: () => set({ ...EMPTY }),
     }),
     {
-      name: 'ekklesia-auth',
+      name: 'asafo-auth',
       partialize: ({ token, user, churches, activeChurch, impersonation }) => ({ token, user, churches, activeChurch, impersonation }),
     }
   )

@@ -13,7 +13,7 @@ Creates a platform operator and three churches:
 
 Every person, phone number and email here is invented. Logins (password ``Demo@12345``):
 
-    owner@ekklesia.demo        platform admin
+    owner@asafo.demo        platform admin
     pastor@grace.demo          church_admin, Grace Covenant (also member of Living Waters)
     secretary@grace.demo       secretary
     finance@grace.demo         finance
@@ -470,7 +470,7 @@ def main() -> None:
     try:
         if args.reset:
             reset_database(db)
-        operator = user(db, "owner@ekklesia.demo", platform_admin=True)
+        operator = user(db, "owner@asafo.demo", platform_admin=True)
         db.commit()
         for slug, build in (("grace-covenant", lambda: build_grace(db, operator)),
                             ("living-waters", lambda: build_living_waters(db)),

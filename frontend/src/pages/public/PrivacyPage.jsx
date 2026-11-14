@@ -3,7 +3,7 @@ import LegalPage, { ContactLine } from './LegalPage';
 const sections = [
   {
     heading: 'Who is responsible for what',
-    body: <p>Each church is the <strong>data controller</strong> for the information it records about its members, visitors and donors. Ekklesia acts as the church’s <strong>processor</strong>: we store and handle that data on the church’s behalf and on its instructions. For information about church staff accounts (names, email addresses, sign-in activity) and for billing, Ekklesia is the controller. We handle personal data in line with the Ghana Data Protection Act, 2012 (Act 843).</p>,
+    body: <p>Each church is the <strong>data controller</strong> for the information it records about its members, visitors and donors. Asafo acts as the church’s <strong>processor</strong>: we store and handle that data on the church’s behalf and on its instructions. For information about church staff accounts (names, email addresses, sign-in activity) and for billing, Asafo is the controller. We handle personal data in line with the Ghana Data Protection Act, 2012 (Act 843).</p>,
   },
   {
     heading: 'What we collect',
@@ -28,7 +28,7 @@ const sections = [
     heading: 'Who we share it with',
     body: (
       <>
-        <p>We use a small number of service providers (sub-processors) to operate Ekklesia. They receive only what they need:</p>
+        <p>We use a small number of service providers (sub-processors) to operate Asafo. They receive only what they need:</p>
         <ul className="list-disc space-y-1 pl-5">
           <li>Vercel: application hosting.</li>
           <li>Neon: database hosting.</li>
@@ -51,7 +51,7 @@ const sections = [
   },
   {
     heading: 'Rights of individuals',
-    body: <p>People whose information a church holds can ask <em>that church</em> to access, correct or delete it, or to stop contacting them; the church can do this inside Ekklesia, and we help on request. Staff can ask us about their own account data at <ContactLine />.</p>,
+    body: <p>People whose information a church holds can ask <em>that church</em> to access, correct or delete it, or to stop contacting them; the church can do this inside Asafo, and we help on request. Staff can ask us about their own account data at <ContactLine />.</p>,
   },
   {
     heading: 'Cookies and storage',
@@ -67,7 +67,7 @@ export default function PrivacyPage() {
   return (
     <LegalPage
       title="Privacy Policy"
-      intro="This policy explains what personal information Ekklesia handles, why, and the choices churches and individuals have."
+      intro="This policy explains what personal information Asafo handles, why, and the choices churches and individuals have."
       sections={sections}
     />
   );

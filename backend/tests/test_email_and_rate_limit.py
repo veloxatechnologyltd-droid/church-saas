@@ -11,8 +11,8 @@ from app.services.email import EmailDeliveryError, EmailMessage, SendGridEmailSe
 @pytest.fixture()
 def sendgrid(monkeypatch):
     monkeypatch.setattr(settings, "SENDGRID_API_KEY", "SG.test")
-    monkeypatch.setattr(settings, "FROM_EMAIL", "hello@ekklesia.test")
-    monkeypatch.setattr(settings, "FROM_NAME", "Ekklesia")
+    monkeypatch.setattr(settings, "FROM_EMAIL", "hello@asafo.test")
+    monkeypatch.setattr(settings, "FROM_NAME", "Asafo")
 
 
 def _capture(monkeypatch, status=202, body=""):
@@ -33,7 +33,7 @@ def test_sendgrid_request_shape(sendgrid, monkeypatch):
     assert call["url"] == "https://api.sendgrid.com/v3/mail/send"
     assert call["headers"]["Authorization"] == "Bearer SG.test"
     assert call["json"]["personalizations"] == [{"to": [{"email": "a@b.test"}]}]
-    assert call["json"]["from"] == {"email": "hello@ekklesia.test", "name": "Ekklesia"}
+    assert call["json"]["from"] == {"email": "hello@asafo.test", "name": "Asafo"}
     assert call["json"]["content"] == [{"type": "text/plain", "value": "Link: https://x/y"}]
 
 

@@ -76,7 +76,7 @@ services:
       - key: FROM_EMAIL              # a sender verified in SendGrid
         sync: false
       - key: FROM_NAME
-        value: Ekklesia
+        value: Asafo
       - key: BILLING_PROVIDER        # manual until live Seevplus keys exist; then: seevplus
         value: manual
       - key: SEEVPLUS_API_KEY

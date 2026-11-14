@@ -85,7 +85,7 @@ Subdomains/custom domains are a later phase.
 
 ---
 
-## Zustand Auth Store (`store/authStore.js`, persisted as `ekklesia-auth`)
+## Zustand Auth Store (`store/authStore.js`, persisted as `asafo-auth`)
 
 State: `token`, `user`, `churches[]`, `activeChurch` (null until chosen), `impersonation`
 (the platform admin's saved session while impersonating), plus non-persisted

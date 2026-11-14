@@ -19,7 +19,7 @@ from app.services import sms_credits
 RESERVED_SLUGS = {
     "admin", "api", "app", "www", "mail", "help", "support", "billing", "login", "signup", "register",
     "platform", "pricing", "settings", "dashboard", "public", "static", "assets", "docs", "blog", "status",
-    "welcome", "pray", "checkin", "auth", "account", "accounts", "church", "churches", "ekklesia", "root",
+    "welcome", "pray", "checkin", "auth", "account", "accounts", "church", "churches", "ekklesia", "asafo", "root",
     "system", "test", "demo", "about", "terms", "privacy", "security", "dev", "staging", "health",
 }
 SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")

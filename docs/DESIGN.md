@@ -11,7 +11,7 @@
 > (secondary/amber role) are generated per church from its own colours at runtime
 > (`frontend/src/utils/theme.js`, see docs/FRONTEND.md -> Theming); `accent-*` (danger) and
 > `success-*` stay fixed. The church logo comes from the API (`ChurchMark` falls back to
-> initials); no church logo ships with the app. The product's own identity ("Ekklesia") is
+> initials); no church logo ships with the app. The product's own identity ("Asafo") is
 > used on public/marketing pages and the platform console (`ProductMark`).
 > New shared components: `Drawer`, `Field`, `Alert`, `Tabs`, `ProgressBar`, `QrLink`,
 > `ChurchMark`, `ProductMark`, `PlanCard`, `MemberPicker`.

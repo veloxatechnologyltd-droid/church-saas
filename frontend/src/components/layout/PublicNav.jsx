@@ -37,7 +37,7 @@ export function PublicFooter() {
           <Link to="/terms" className="hover:text-slate-800">Terms</Link>
           <Link to="/privacy" className="hover:text-slate-800">Privacy</Link>
         </div>
-        <p>© {new Date().getFullYear()} Ekklesia. Made in Accra.</p>
+        <p>© {new Date().getFullYear()} Asafo. Made in Accra.</p>
       </div>
     </footer>
   );

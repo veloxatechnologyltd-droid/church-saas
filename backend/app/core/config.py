@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     SENDGRID_API_KEY: str = ""
     FROM_EMAIL: str = "noreply@example.com"
-    FROM_NAME: str = "Ekklesia"
+    FROM_NAME: str = "Asafo"
 
     # arkesel | moolre | console (console logs messages instead of sending; local/dev only)
     SMS_PROVIDER: str = "arkesel"
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     EMAIL_BACKEND: str = "console"
 
     # --- SaaS platform ---
-    PRODUCT_NAME: str = "Ekklesia"
+    PRODUCT_NAME: str = "Asafo"
     # Version stamp of the Terms/Privacy text a church accepted at signup (bump when they change).
     LEGAL_VERSION: str = "2026-11-10"
     ENVIRONMENT: str = "development"  # development | staging | production

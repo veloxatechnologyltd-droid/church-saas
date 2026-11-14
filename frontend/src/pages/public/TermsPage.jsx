@@ -3,7 +3,7 @@ import LegalPage, { ContactLine } from './LegalPage';
 const sections = [
   {
     heading: 'The service',
-    body: <p>Ekklesia is a web service for managing a church: members, attendance, giving, communication and reports. A church signs up, becomes the account holder, and invites its own team. These terms are an agreement between the church (the “Customer”) and Ekklesia (“we”).</p>,
+    body: <p>Asafo is a web service for managing a church: members, attendance, giving, communication and reports. A church signs up, becomes the account holder, and invites its own team. These terms are an agreement between the church (the “Customer”) and Asafo (“we”).</p>,
   },
   {
     heading: 'Accounts and access',
@@ -25,7 +25,7 @@ const sections = [
   },
   {
     heading: 'Acceptable use',
-    body: <p>Do not use Ekklesia to break the law, to send spam or unsolicited bulk messages, to harass anyone, to store data you have no right to hold, to probe or disrupt the service, or to access another church’s data. We may suspend an account that does.</p>,
+    body: <p>Do not use Asafo to break the law, to send spam or unsolicited bulk messages, to harass anyone, to store data you have no right to hold, to probe or disrupt the service, or to access another church’s data. We may suspend an account that does.</p>,
   },
   {
     heading: 'Plans, trial and payment',
@@ -52,7 +52,7 @@ const sections = [
     heading: 'Availability and liability',
     body: (
       <>
-        <p>We work to keep Ekklesia available and secure but provide it “as is”, without a guarantee of uninterrupted or error-free operation. Keep your own copies of anything critical by using the export tools.</p>
+        <p>We work to keep Asafo available and secure but provide it “as is”, without a guarantee of uninterrupted or error-free operation. Keep your own copies of anything critical by using the export tools.</p>
         <p>To the extent the law allows, we are not liable for indirect or consequential losses, and our total liability for any claim is limited to the amount you paid us in the three months before it arose.</p>
       </>
     ),
@@ -71,7 +71,7 @@ export default function TermsPage() {
   return (
     <LegalPage
       title="Terms of Service"
-      intro="Please read these terms before using Ekklesia. By creating an account or using the service you agree to them."
+      intro="Please read these terms before using Asafo. By creating an account or using the service you agree to them."
       sections={sections}
     />
   );

@@ -35,7 +35,7 @@ export default function PublicChurchShell({ church, loading, notFound, children,
             </>
           )}
         </div>
-        <div className="mt-6 flex justify-center opacity-70"><a href="/" aria-label="Powered by Ekklesia"><ProductMark /></a></div>
+        <div className="mt-6 flex justify-center opacity-70"><a href="/" aria-label="Powered by Asafo"><ProductMark /></a></div>
       </main>
     </div>
   );

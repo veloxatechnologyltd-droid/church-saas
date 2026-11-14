@@ -1,6 +1,6 @@
-# Ekklesia — multi-church management SaaS
+# Asafo — multi-church management SaaS
 
-Ekklesia is a multi-tenant church management platform built for growing ministries in Ghana and beyond.
+Asafo is a multi-tenant church management platform built for growing ministries in Ghana and beyond.
 Each church signs up, gets its own branded workspace, and manages its people, services, giving and outreach,
 across one or many branches.
 
@@ -65,7 +65,7 @@ cd ../backend && pytest -q
 
 | Email | Role |
 |---|---|
-| `owner@ekklesia.demo` | Platform admin (console at `/platform`) |
+| `owner@asafo.demo` | Platform admin (console at `/platform`) |
 | `pastor@grace.demo` | Church admin, Grace Covenant (also in Living Waters — church picker) |
 | `secretary@grace.demo` / `finance@grace.demo` / `youth@grace.demo` | Secretary / Finance / Group leader |
 | `tema@grace.demo` | Admin limited to the Tema branch |
